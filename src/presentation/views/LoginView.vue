@@ -4,7 +4,7 @@
     <div class="login-container">
       <div class="header-section">
         <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="login-logo">
-        <h1 class="system-name">ODONTOHUB</h1>
+        <h1 class="system-name">SMILEHUB</h1>
       </div>
 
       <div class="login-card">

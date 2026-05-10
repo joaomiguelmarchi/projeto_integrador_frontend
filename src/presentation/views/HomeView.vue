@@ -3,8 +3,8 @@
     
     <header class="topbar">
       <div class="logo-area">
-        <Image :src="logoUrl" alt="Logo SmileHub" width="40" />
-        <span class="logo-text" style=" color: #2563eb;" >ODONTOHUB</span>
+        <Image :src="logoUrl" alt="Logo Odontohub" width="40" />
+        <span class="logo-text" style=" color: #2563eb;" >SMILEHUB</span>
       </div>
       
       <div class="actions-area">
@@ -13,17 +13,17 @@
           text 
           rounded 
           severity="secondary" 
-          v-tooltip.bottom="'Configurações'" 
-          aria-label="Configurações" 
+          v-tooltip.bottom="'Configuration'" 
+          aria-label="Configuration" 
         />
         <Button 
           icon="pi pi-sign-out" 
           text 
           rounded 
           severity="danger" 
-          v-tooltip.bottom="'Sair do Sistema'" 
-          aria-label="Sair" 
-          @click="sair" 
+          v-tooltip.bottom="'Logout'" 
+          aria-label="Logout" 
+          @click="logout" 
         />
       </div>
     </header>
@@ -32,17 +32,17 @@
       <div class="modules-grid">
         
         <Card 
-          v-for="modulo in modulos" 
-          :key="modulo.titulo" 
+          v-for="item in modules" 
+          :key="item.title" 
           class="module-card" 
-          @click="acessarModulo(modulo.rota)"
+          @click="accessModule(item.route)"
         >
           <template #content>
             <div class="card-body">
               <div class="icon-wrapper">
-                <i :class="['pi', modulo.icone]"></i>
+                <i :class="['pi', item.icon]"></i>
               </div>
-              <h2 class="module-title">{{ modulo.titulo }}</h2>
+              <h2 class="module-title">{{ item.title }}</h2>
             </div>
           </template>
         </Card>
@@ -62,20 +62,20 @@ import Image from 'primevue/image'
 import logoUrl from '../../assets/LogoAzul.png'
 
 const router = useRouter()
-const modulos = ref([
-  { titulo: 'Cadastro Paciente', icone: 'pi-users', rota: '/pacientes' },
-  { titulo: 'Conta Paciente', icone: 'pi-folder', rota: '/contas' },
-  { titulo: 'Orçamento', icone: 'pi-dollar', rota: '/orcamentos' },
-  { titulo: 'Agenda', icone: 'pi-calendar', rota: '/agenda' },
-  { titulo: 'Faturamento', icone: 'pi-receipt', rota: '/faturamento' },
-  { titulo: 'Procedimentos', icone: 'pi-list', rota: '/procedimentos' }
+const modules = ref([
+  { title: 'Cadastro de Paciente', icon: 'pi-users', route: '/patients' },
+  { title: 'Conta Paciente', icon: 'pi-folder', route: '/patientAcount' },
+  { title: 'Orçamento', icon: 'pi-dollar', route: '/quotation' },
+  { title: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
+  { title: 'Faturamento', icon: 'pi-receipt', route: '/billing' },
+  { title: 'Procedimentos', icon: 'pi-list', route: '/procedures' }
 ])
 
-const acessarModulo = (rota: string) => {
-  router.push(rota)
+const accessModule = (route: string) => {
+  router.push(route)
 }
 
-const sair = () => {
+const logout = () => {
   localStorage.removeItem('usuario_logado')
   router.push('/login')
 }

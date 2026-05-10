@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
+import ProceduresView from '../views/ProceduresView.vue'
+import PatientAcount from '../views/PatientAcountView.vue'
 
 const routes = [
   {
@@ -16,7 +18,17 @@ const routes = [
     path: '/home',
     name: 'home',
     component: HomeView,
-    meta: { requiresAuth: true } // Rota protegida
+    meta: { requiresAuth: true } 
+  },
+  {
+    path: '/procedures',
+    name: 'procedures',
+    component: ProceduresView
+  },
+  {
+    path: '/patientAcount',
+    name: 'patientAcount',
+    component: PatientAcount
   }
 ]
 
