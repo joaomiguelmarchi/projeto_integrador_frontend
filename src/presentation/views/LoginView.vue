@@ -94,19 +94,24 @@ const validar = () => {
 }
 
 const fazerLogin = async () => {
-  if (!validar()) return
-  carregando.value = true
+  if (!validar()) return;
+
+  carregando.value = true;
 
   try {
-    await AuthService.login(usuario.value, senha.value)
-    localStorage.setItem('usuario_logado', 'true') 
-    router.push('/home')
-
+    const resultado = await AuthService.login(usuario.value, senha.value);
+    
+    if (resultado.sucesso) {
+      localStorage.setItem('usuario_logado', 'true');
+      router.push('/home');
+    } else {
+      erros.value.usuario = resultado.mensagem;
+      erros.value.senha = resultado.mensagem;
+    }
   } catch (error: any) {
-    erros.value.usuario = 'Usuário ou senha incorretos.'
-    erros.value.senha = 'Usuário ou senha incorretos.'
+    erros.value.usuario = 'Erro de comunicação com o servidor';
   } finally {
-    carregando.value = false
+    carregando.value = false;
   }
 }
 </script>
