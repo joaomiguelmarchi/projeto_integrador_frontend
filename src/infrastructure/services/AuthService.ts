@@ -1,20 +1,27 @@
-import type { User } from '../../core/entities/User';
+import { api } from '../http/api';
 
 export const AuthService = {
-  async login(user: string, senha: string): Promise<User> {
+  async login(email: string, senha: string) {
+    try {
+      const response = await api.post('/user/login', {
+        email: email,      
+        password: senha     
+      });
 
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (user === 'admin' && senha === '123') {
-          resolve({
-            id: '1',
-            name: 'Dentista Admin',
-            token: 'simulacao-jwt-token-12345'
-          });
-        } else {
-          reject(new Error('Usuário ou senha incorretos!'));
-        }
-      }, 1500); 
-    });
+      // Se passou pelo backend sem cair no BadRequest (400), o login foi sucesso
+      // O navegador já salvou o cookie automaticamente neste momento!
+      return { 
+        sucesso: true 
+      };
+
+    } catch (error: any) {
+      // Pega a mensagem de erro que vem do seu DefaultError (ex: "Credenciais invalidas")
+      const mensagemErro = error.response?.data?.error?.message || 'Erro inesperado no servidor.';
+      
+      return { 
+        sucesso: false, 
+        mensagem: mensagemErro 
+      };
+    }
   }
 };
