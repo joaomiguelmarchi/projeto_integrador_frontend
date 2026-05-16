@@ -99,16 +99,12 @@ const fazerLogin = async () => {
   carregando.value = true;
 
   try {
-    // Agora enviamos a chamada real. O 'usuario' no front será o 'email' no back
     const resultado = await AuthService.login(usuario.value, senha.value);
     
     if (resultado.sucesso) {
-      // Como o cookie já está salvo de forma segura pelo navegador,
-      // registramos localmente apenas que o usuário está logado
       localStorage.setItem('usuario_logado', 'true');
       router.push('/home');
     } else {
-      // Exibe a mensagem exata retornada pelo Kotlin (Ex: "Credenciais invalidas")
       erros.value.usuario = resultado.mensagem;
       erros.value.senha = resultado.mensagem;
     }
