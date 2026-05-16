@@ -58,7 +58,7 @@
                               <i class="pi pi-search" />
                           </InputIcon>
                           <InputText 
-                              v-model="procedureFilter['global'].value" 
+                              v-model="procedureFilters['global'].value" 
                               placeholder="Pesquisar" 
                               class="py-1 px-2 text-sm h-[36px]" 
                           />
@@ -67,16 +67,18 @@
                           icon="pi pi-plus" 
                           label="Adicionar" 
                           class="bg-[var(--p-primary-500)] hover:bg-[var(--p-primary-600)] border-none px-3 py-1 text-sm font-semibold text-white transition-colors h-[36px] flex items-center" 
-                          @click="openNew"
+                          @click="openAddDialog"
                       />
                   </div>
               </div>
 
               <div class="flex-1 flex flex-col overflow-hidden p-5 pb-6">
                   <DataTable 
-                      v-model:filters="procedureFilter"
+                      v-model:filters="procedureFilters"
                       v-model:selection="selectedProcedure"
-                      :value="procedimentosMock" 
+                      v-model:contextMenuSelection="contextMenuSelection"
+                      @rowContextmenu="onRowContextMenu"
+                      :value="proceduresMock" 
                       class="procedure-table flex-1"
                       scrollable 
                       scrollHeight="flex"
@@ -84,7 +86,7 @@
                       :metaKeySelection="metaKey" 
                       dataKey="id"
                       filterDisplay="row"
-                      :globalFilterFields="['status', 'id', 'descricao', 'valor', 'classificacao']"
+                      :globalFilterFields="['status', 'id', 'description', 'price', 'category']"
                       :rowClass="rowClass"
                   >   
                       <template #empty> Nenhum procedimento encontrado. </template>
@@ -120,27 +122,27 @@
                           </template>
                       </Column>
 
-                      <Column field="descricao" header="Descrição" :showFilterMenu="false">
+                      <Column field="description" header="Descrição" :showFilterMenu="false">
                           <template #filter="{ filterModel, filterCallback }">
                               <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Descrição" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
                           </template>
                       </Column>
 
-                      <Column field="valor" header="Valor" :showFilterMenu="false">
+                      <Column field="price" header="Valor" :showFilterMenu="false">
                           <template #body="{ data }">
-                              {{ formatarMoeda(data.valor) }}
+                              {{ formatCurrency(data.price) }}
                           </template>
                           <template #filter="{ filterModel, filterCallback }">
                               <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Valor" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
                           </template>
                       </Column>
                       
-                      <Column field="classificacao" header="Classificação" :showFilterMenu="false">
+                      <Column field="category" header="Classificação" :showFilterMenu="false">
                           <template #filter="{ filterModel, filterCallback }">
                               <Select 
                                   v-model="filterModel.value" 
                                   @change="filterCallback()" 
-                                  :options="classificacoes" 
+                                  :options="categories" 
                                   placeholder="Selecione" 
                                   class="py-1 px-2 text-sm h-[36px] flex items-center" 
                                   style="min-width: 10rem" 
@@ -153,14 +155,14 @@
                       <Column :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-end gap-2 pr-2">
-                                <Button icon="pi pi-pencil" variant="outlined" rounded size="small" @click="editProcedure(slotProps.data)":disabled="slotProps.data.status === 'Inativo'"/>
+                                <Button icon="pi pi-pencil" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'"/>
                                 <Button 
                                     icon="pi pi-trash" 
                                     variant="outlined" 
                                     rounded 
                                     severity="danger" 
                                     size="small" 
-                                    @click="deleteProcedure(slotProps.data)" 
+                                    @click="confirmDeleteProcedure(slotProps.data)" 
                                     :disabled="slotProps.data.status === 'Inativo'"
                                 />
                             </div>
@@ -172,54 +174,79 @@
       </main>
   </div>
 
-  <Dialog v-model:visible="editProcedureDialog" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true">
+  <ContextMenu ref="cm" :model="menuItems" />
+
+  <Dialog v-model:visible="addDialogVisible" :style="{ width: '550px' }" header="Adicionar Procedimento" :modal="true">
       <div class="flex flex-col gap-4 py-4">
           <div>
-              <label for="descricao" class="block font-bold mb-2">Descrição</label>
-              <InputText id="descricao" v-model.trim="procedure.descricao" required="true" autofocus :invalid="submitted && !procedure.descricao" class="w-full" />
-              <small v-if="submitted && !procedure.descricao" class="text-red-500">A descrição é obrigatória.</small>
+              <label for="add-description" class="block font-bold mb-2">Descrição</label>
+              <InputText id="add-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
+              <small v-if="submitted && !currentProcedure.description" class="text-red-500">A descrição é obrigatória.</small>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
               <div>
-                  <label for="valor" class="block font-bold mb-2">Valor (R$)</label>
-                  <InputNumber id="valor" v-model="procedure.valor" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                  <label for="add-price" class="block font-bold mb-2">Valor (R$)</label>
+                  <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
               </div>
               <div>
-                  <label for="classificacao" class="block font-bold mb-2">Classificação</label>
-                  <Select id="classificacao" v-model="procedure.classificacao" :options="classificacoes" placeholder="Selecione" class="w-full"></Select>
+                  <label for="add-category" class="block font-bold mb-2">Classificação</label>
+                  <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full"></Select>
               </div>
           </div>
       </div>
 
       <template #footer>
-          <Button label="Cancelar" icon="pi pi-times" text @click="hideDialog" />
-          <Button label="Salvar" icon="pi pi-check" @click="saveProcedure" />
+          <Button label="Cancelar" icon="pi pi-times" text @click="closeAddDialog" />
+          <Button label="Salvar" icon="pi pi-check" @click="saveAddedProcedure" />
       </template>
   </Dialog>
 
-  <Dialog v-model:visible="deleteProcedureDialog" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true">
-      <div class="flex items-center gap-4 py-4">
-          <i class="pi pi-exclamation-triangle !text-3xl text-red-500" />
-          <span v-if="procedure">Você tem certeza que quer deletar <b>{{ procedure.descricao }}</b>?</span>
+  <Dialog v-model:visible="editDialogVisible" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true">
+      <div class="flex flex-col gap-4 py-4">
+          <div>
+              <label for="edit-description" class="block font-bold mb-2">Descrição</label>
+              <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
+              <small v-if="submitted && !currentProcedure.description" class="text-red-500">A descrição é obrigatória.</small>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+              <div>
+                  <label for="edit-price" class="block font-bold mb-2">Valor (R$)</label>
+                  <InputNumber id="edit-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+              </div>
+              <div>
+                  <label for="edit-category" class="block font-bold mb-2">Classificação</label>
+                  <Select id="edit-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full"></Select>
+              </div>
+          </div>
+      </div>
+
+      <template #footer>
+          <Button label="Cancelar" icon="pi pi-times" text @click="closeEditDialog" />
+          <Button label="Salvar" icon="pi pi-check" @click="saveEditedProcedure" />
+      </template>
+  </Dialog>
+
+  <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" :modal="true">
+      <template #header>
+          <div class="flex items-center gap-3">
+              <i class="pi pi-exclamation-triangle !text-3xl text-red-500" />
+              <span class="text-xl font-bold">Confirmar Exclusão</span>
+          </div>
+      </template>
+      <div class="py-4">
+          <span v-if="currentProcedure">Você tem certeza que quer deletar <b>{{ currentProcedure.description }}</b>?</span>
       </div>
       <template #footer>
-          <Button label="Não" icon="pi pi-times" text @click="deleteProcedureDialog = false" />
-          <Button label="Sim" icon="pi pi-check" severity="danger" @click="confirmDelete" />
+          <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+          <Button label="Sim" icon="pi pi-check" severity="danger" @click="executeDelete" />
       </template>
   </Dialog>
 
 </template>
 
 <script setup lang="ts">
-interface Procedimento {
-    id: string;
-    status: string;
-    descricao: string;
-    valor: number;
-    classificacao: string;
-}
-
 import { ref } from 'vue';                
 import { FilterMatchMode } from '@primevue/core/api';
 import Button from 'primevue/button';
@@ -231,121 +258,178 @@ import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
-import { useRouter } from 'vue-router'
+import ContextMenu from 'primevue/contextmenu';
+import { useRouter } from 'vue-router';
 
-const procedimentosMock = ref([
-    { id: '#0000001', status: 'Ativo', descricao: 'Clareamento Dental', valor: 850.00, classificacao: 'Procedimento'},
-    { id: '#0000002', status: 'Inativo', descricao: 'Limpeza (Profilaxia)', valor: 200.00, classificacao: 'Procedimento' },
-    { id: '#0000003', status: 'Ativo', descricao: 'Extração Siso', valor: 450.00, classificacao: 'Cirurgia' },    
-    { id: '#0000004', status: 'Ativo', descricao: 'Extração Siso', valor: 450.00, classificacao: 'Cirurgia' },
-    { id: '#0000005', status: 'Ativo', descricao: 'Extração Siso', valor: 450.00, classificacao: 'Cirurgia' },
-    { id: '#0000006', status: 'Ativo', descricao: 'Extração Siso', valor: 450.00, classificacao: 'Cirurgia' },
-    { id: '#0000007', status: 'Inativo', descricao: 'Limpeza (Profilaxia)', valor: 200.00, classificacao: 'Procedimento' },
-    { id: '#0000008', status: 'Ativo', descricao: 'Limpeza (Profilaxia)', valor: 200.00, classificacao: 'Procedimento' },
-    { id: '#0000009', status: 'Ativo', descricao: 'Extração Siso', valor: 4110.00, classificacao: 'Cirurgia' },
-    { id: '#0000010', status: 'Inativo', descricao: 'Extração Siso', valor: 950.00, classificacao: 'Cirurgia' },
-    { id: '#0000011', status: 'Inativo', descricao: 'Extração Siso', valor: 950.00, classificacao: 'Cirurgia' },
+// --- INTERFACES ---
+interface Procedure {
+    id: string;
+    status: string;
+    description: string;
+    price: number;
+    category: string;
+}
+
+// --- MOCK DATA ---
+const proceduresMock = ref<Procedure[]>([
+    { id: '#0000001', status: 'Ativo', description: 'Clareamento Dental', price: 850.00, category: 'Procedimento'},
+    { id: '#0000002', status: 'Inativo', description: 'Limpeza (Profilaxia)', price: 200.00, category: 'Procedimento' },
+    { id: '#0000003', status: 'Ativo', description: 'Extração Siso', price: 450.00, category: 'Cirurgia' },    
+    { id: '#0000004', status: 'Ativo', description: 'Extração Siso', price: 450.00, category: 'Cirurgia' },
+    { id: '#0000005', status: 'Ativo', description: 'Extração Siso', price: 450.00, category: 'Cirurgia' },
+    { id: '#0000006', status: 'Ativo', description: 'Extração Siso', price: 450.00, category: 'Cirurgia' },
+    { id: '#0000007', status: 'Inativo', description: 'Limpeza (Profilaxia)', price: 200.00, category: 'Procedimento' },
+    { id: '#0000008', status: 'Ativo', description: 'Limpeza (Profilaxia)', price: 200.00, category: 'Procedimento' },
+    { id: '#0000009', status: 'Ativo', description: 'Extração Siso', price: 4110.00, category: 'Cirurgia' },
+    { id: '#0000010', status: 'Inativo', description: 'Extração Siso', price: 950.00, category: 'Cirurgia' },
+    { id: '#0000011', status: 'Inativo', description: 'Extração Siso', price: 950.00, category: 'Cirurgia' },
 ]);
 
-const formatarMoeda = (valor: number) => {
+const categories = ref(['Cirurgia', 'Procedimento', 'Laboratório']);
+
+const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
-    }).format(valor);
+    }).format(value);
 };
 
-// --- ESTADOS DA TABELA E FILTROS ---
+// --- TABLE STATES AND FILTERS ---
 const selectedProcedure = ref();
+const contextMenuSelection = ref();
 const metaKey = ref(true);
-const classificacoes = ref(['Cirurgia', 'Procedimento', 'Laboratório']);
 
-const procedureFilter = ref({
+const procedureFilters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    status: { value: null, matchMode: FilterMatchMode.EQUALS },
+    status: { value: 'Ativo', matchMode: FilterMatchMode.EQUALS }, // Padrão setado para "Ativo"
     id: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    descricao: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    valor: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    classificacao: { value: null, matchMode: FilterMatchMode.EQUALS },
+    description: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    price: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    category: { value: null, matchMode: FilterMatchMode.EQUALS },
 });
 
-// --- LÓGICA DE EDIÇÃO/CRIAÇÃO ---
-const editProcedureDialog = ref(false);
-const submitted = ref(false);
-const procedure = ref<Procedimento>({} as Procedimento);
+// --- CONTEXT MENU LOGIC (RIGHT-CLICK) ---
+const cm = ref();
+const menuItems = ref([
+    { 
+        label: 'Reativar procedimento', 
+        command: () => reactivateProcedure() 
+    },
+    { 
+        label: 'Excluir procedimento'
+    }
+]);
 
-const openNew = () => {
-    procedure.value = {
+const onRowContextMenu = (event: any) => {
+    // Abre o menu apenas se o registro selecionado for "Inativo"
+    if (contextMenuSelection.value && contextMenuSelection.value.status === 'Inativo') {
+        cm.value.show(event.originalEvent);
+    }
+};
+
+const reactivateProcedure = () => {
+    if (contextMenuSelection.value) {
+        const index = proceduresMock.value.findIndex(p => p.id === contextMenuSelection.value.id);
+        const itemToReactivate = proceduresMock.value[index];
+        // O TypeScript agora sabe que itemToReactivate não é undefined
+        if (itemToReactivate) {
+            itemToReactivate.status = 'Ativo';
+        }
+        
+        contextMenuSelection.value = null; // Limpa a seleção do menu de contexto
+    }
+};
+
+// --- DIALOG STATES ---
+const addDialogVisible = ref(false);
+const editDialogVisible = ref(false);
+const deleteDialogVisible = ref(false);
+const submitted = ref(false);
+const currentProcedure = ref<Procedure>({} as Procedure);
+
+// --- ADD PROCEDURE LOGIC ---
+const openAddDialog = () => {
+    currentProcedure.value = {
         id: '',
         status: 'Ativo',
-        descricao: '',
-        valor: 0,
-        classificacao: ''
+        description: '',
+        price: 0,
+        category: ''
     };
     submitted.value = false;
-    editProcedureDialog.value = true;
+    addDialogVisible.value = true;
 };
 
-const hideDialog = () => {
-    editProcedureDialog.value = false;
+const closeAddDialog = () => {
+    addDialogVisible.value = false;
     submitted.value = false;
 };
 
-const editProcedure = (proc: Procedimento) => {
-    procedure.value = { ...proc }; 
-    editProcedureDialog.value = true;
-};
-
-const saveProcedure = () => {
+const saveAddedProcedure = () => {
     submitted.value = true;
 
-    if (procedure.value.descricao?.trim()) {
-        if (procedure.value.id) {
-            const index = procedimentosMock.value.findIndex(p => p.id === procedure.value.id);
-            if (index !== -1) {
-                procedimentosMock.value[index] = procedure.value;
-            }
-        } else {
-            procedure.value.id = '#' + Math.floor(Math.random() * 1000000).toString().padStart(7, '0');
-            procedimentosMock.value.unshift(procedure.value);
+    if (currentProcedure.value.description?.trim()) {
+        currentProcedure.value.id = '#' + Math.floor(Math.random() * 1000000).toString().padStart(7, '0');
+        proceduresMock.value.unshift(currentProcedure.value);
+        
+        addDialogVisible.value = false;
+        currentProcedure.value = {} as Procedure;
+    }
+};
+
+// --- EDIT PROCEDURE LOGIC ---
+const openEditDialog = (proc: Procedure) => {
+    currentProcedure.value = { ...proc }; 
+    submitted.value = false;
+    editDialogVisible.value = true;
+};
+
+const closeEditDialog = () => {
+    editDialogVisible.value = false;
+    submitted.value = false;
+};
+
+const saveEditedProcedure = () => {
+    submitted.value = true;
+
+    if (currentProcedure.value.description?.trim()) {
+        const index = proceduresMock.value.findIndex(p => p.id === currentProcedure.value.id);
+        if (index !== -1) {
+            proceduresMock.value[index] = currentProcedure.value;
         }
 
-        editProcedureDialog.value = false;
-        procedure.value = {} as Procedimento;
+        editDialogVisible.value = false;
+        currentProcedure.value = {} as Procedure;
     }
 };
 
-// --- LÓGICA DE EXCLUSÃO ---
-const deleteProcedureDialog = ref(false);
-
-const deleteProcedure = (proc: Procedimento) => {
-    procedure.value = { ...proc }; // Copia os dados da linha clicada para exibir o nome na mensagem
-    deleteProcedureDialog.value = true;
+// --- DELETE PROCEDURE LOGIC ---
+const confirmDeleteProcedure = (proc: Procedure) => {
+    currentProcedure.value = { ...proc }; 
+    deleteDialogVisible.value = true;
 };
 
-const confirmDelete = () => {
-    const index = procedimentosMock.value.findIndex(p => p.id === procedure.value.id);
-    
-    // Pegamos a referência do item
-    const itemParaInativar = procedimentosMock.value[index];
+const executeDelete = () => {
+    const index = proceduresMock.value.findIndex(p => p.id === currentProcedure.value.id);
+    const itemToDeactivate = proceduresMock.value[index];
 
-    // Se o item existir (não for undefined), alteramos o status
-    if (itemParaInativar) {
-        itemParaInativar.status = 'Inativo';
+    if (itemToDeactivate) {
+        itemToDeactivate.status = 'Inativo';
     }
     
-    deleteProcedureDialog.value = false;
-    procedure.value = {} as Procedimento;
+    deleteDialogVisible.value = false;
+    currentProcedure.value = {} as Procedure;
 };
 
-// --- OUTRAS FUNÇÕES ---
-const rowClass = (data: Procedimento) => {
-    return [{ 'linha-inativa': data.status === 'Inativo' }];
+// --- MISC FUNCTIONS ---
+const rowClass = (data: Procedure) => {
+    return [{ 'inactive-row': data.status === 'Inativo' }];
 };
 
-const router = useRouter()
+const router = useRouter();
 const accessHome = () => {
-  router.push('/home')
-}
+  router.push('/home');
+};
 </script>
 
 <style scoped>
@@ -370,12 +454,12 @@ const accessHome = () => {
     color: var(--p-primary-900) !important;
 }
 
-:deep(.procedure-table .p-datatable-tbody > tr.linha-inativa > td),
-:deep(.procedure-table .p-datatable-tbody > tr.linha-inativa > td *) {
+:deep(.procedure-table .p-datatable-tbody > tr.inactive-row > td),
+:deep(.procedure-table .p-datatable-tbody > tr.inactive-row > td *) {
     color: var(--p-surface-400) !important;   
 }
 
-:deep(.procedure-table .p-datatable-tbody > tr.linha-inativa:not(.p-highlight):hover > td) {
+:deep(.procedure-table .p-datatable-tbody > tr.inactive-row:not(.p-highlight):hover > td) {
     background-color: var(--p-primary-50) !important;
 }
 </style>
