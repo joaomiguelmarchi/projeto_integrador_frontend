@@ -13,7 +13,7 @@ export const AuthService = {
       };
 
     } catch (error: any) {
-      const mensagemErro = error.response?.data?.error?.message || 'Erro inesperado no servidor.';
+      const mensagemErro = error.response?.data?.error?.message || 'Credenciais incorretas.';
       
       return { 
         sucesso: false, 
