@@ -3,6 +3,7 @@ import LoginView from '../views/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
 import ProceduresView from '../views/ProceduresView.vue'
 import PatientAcount from '../views/PatientAcountView.vue'
+import PatientRegistration from '../views/PatientRegistrationView.vue'
 
 const routes = [
   {
@@ -29,6 +30,11 @@ const routes = [
     path: '/patientAcount',
     name: 'patientAcount',
     component: PatientAcount
+  },
+  {
+    path: '/patientRegistration',
+    name: 'patientRegistration',
+    component: PatientRegistration
   }
 ]
 
