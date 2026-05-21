@@ -2,8 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
 import ProceduresView from '../views/ProceduresView.vue'
-import PatientAcount from '../views/PatientAcountView.vue'
-import PatientRegistration from '../views/PatientRegistrationView.vue'
+import PatientAcountView from '../views/PatientAcountView.vue'
+import PatientRegistrationView from '../views/PatientRegistrationView.vue'
+import ResetPasswordView from '../views/ResetPasswordView.vue'
 
 const routes = [
   {
@@ -14,6 +15,11 @@ const routes = [
     path: '/login',
     name: 'login',
     component: LoginView
+  },
+  {
+    path: '/resetPassword',
+    name: 'resetPassword',
+    component: ResetPasswordView
   },
   {
     path: '/home',
@@ -29,12 +35,12 @@ const routes = [
   {
     path: '/patientAcount',
     name: 'patientAcount',
-    component: PatientAcount
+    component: PatientAcountView
   },
   {
     path: '/patientRegistration',
     name: 'patientRegistration',
-    component: PatientRegistration
+    component: PatientRegistrationView
   }
 ]
 
