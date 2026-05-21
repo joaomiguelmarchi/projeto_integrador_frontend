@@ -48,18 +48,57 @@
             <Message v-if="errors.password" severity="error" variant="simple" size="small">
               {{ errors.password }}
             </Message>
+            
+            <div class="flex justify-end mt-1">
+              <a 
+                href="#" 
+                @click.prevent="openForgotDialog" 
+                class="text-sm font-medium text-[var(--p-primary-500)] hover:text-[var(--p-primary-600)] transition-colors"
+              >
+                Esqueci minha senha
+              </a>
+            </div>
           </div>
 
           <Button 
             type="submit" 
             label="Entrar"  
             :loading="loading" 
-            class="!border-none !p-[0.85rem] font-semibold !rounded-lg mt-2"
+            class="!border-none !p-[0.85rem] font-semibold !rounded-lg mt-1"
             fluid 
           />
         </form>
       </div>
     </div>
+
+    <Dialog v-model:visible="forgotDialogVisible" :style="{ width: '450px' }" header="Recuperar Senha" :modal="true" class="p-fluid">
+        <div class="flex flex-col gap-4 py-4">
+            <span class="text-slate-600 text-sm">
+                Informe o seu e-mail de cadastro. Enviaremos as instruções para você criar uma nova senha.
+            </span>
+            <div>
+                <label for="recovery-email" class="block font-bold mb-2">E-mail</label>
+                <InputText 
+                    id="recovery-email" 
+                    type="email" 
+                    v-model.trim="recoveryEmail" 
+                    placeholder="exemplo@email.com" 
+                    autofocus 
+                    :invalid="recoverySubmitted && !recoveryEmail" 
+                    class="w-full" 
+                />
+                <small v-if="recoverySubmitted && !recoveryEmail" class="text-red-500">
+                    Por favor, informe um e-mail válido.
+                </small>
+            </div>
+        </div>
+
+        <template #footer>
+            <Button label="Cancelar" icon="pi pi-times" text @click="closeForgotDialog" />
+            <Button label="Enviar " icon="pi pi-send" @click="sendRecoveryEmail" :loading="recoveryLoading" />
+        </template>
+    </Dialog>
+
   </div>
 </template>
 
@@ -73,6 +112,7 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
+import Dialog from 'primevue/dialog' // Adicionado import do Dialog
 
 // --- STATES ---
 const username = ref('')
@@ -86,6 +126,12 @@ const errors = ref({
   password: ''
 })
 const globalError = ref('')
+
+// --- FORGOT PASSWORD STATES ---
+const forgotDialogVisible = ref(false)
+const recoveryEmail = ref('')
+const recoverySubmitted = ref(false)
+const recoveryLoading = ref(false)
 
 // --- VALIDATION LOGIC ---
 const validateForm = () => {
@@ -125,5 +171,39 @@ const handleLogin = async () => {
   } finally {
     loading.value = false;
   }
+}
+
+// --- FORGOT PASSWORD ACTIONS ---
+const openForgotDialog = () => {
+    recoveryEmail.value = ''
+    recoverySubmitted.value = false
+    forgotDialogVisible.value = true
+}
+
+const closeForgotDialog = () => {
+    forgotDialogVisible.value = false
+}
+
+const sendRecoveryEmail = async () => {
+    recoverySubmitted.value = true
+    
+    if (!recoveryEmail.value) return
+
+    recoveryLoading.value = true
+    
+    try {
+        // Aqui você chamaria o seu AuthService, ex: await AuthService.requestPasswordReset(recoveryEmail.value)
+        // Simulando delay de rede para feedback visual
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        closeForgotDialog()
+        // Opcional: Adicionar um Toast aqui para avisar que o e-mail foi enviado com sucesso
+        
+    } catch (error) {
+        // Tratar erro (ex: e-mail não encontrado)
+        console.error(error)
+    } finally {
+        recoveryLoading.value = false
+    }
 }
 </script>
