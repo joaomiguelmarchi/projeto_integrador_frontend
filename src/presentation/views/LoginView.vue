@@ -15,13 +15,13 @@
           </Message>
 
           <div class="flex flex-col gap-2">
-            <label for="username" class="text-sm font-semibold text-slate-700">Usuário</label>
+            <label for="username" class="text-sm font-semibold text-slate-700">Email</label>
             <IconField>
-              <InputIcon class="pi pi-user" />
+              <InputIcon class="pi pi-envelope" />
               <InputText 
                 id="username" 
                 v-model="username" 
-                placeholder="Digite seu usuário" 
+                placeholder="Digite seu email" 
                 :invalid="!!errors.username"
                 fluid 
               />
@@ -139,7 +139,7 @@ const validateForm = () => {
   let isValid = true
   
   if (!username.value.trim()) {
-    errors.value.username = 'O campo usuário é obrigatório.'
+    errors.value.username = 'O campo email é obrigatório.'
     isValid = false
   }
   if (!password.value) {
