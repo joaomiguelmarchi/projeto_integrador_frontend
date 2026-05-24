@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-[var(--p-surface-50)] h-screen w-full flex overflow-hidden">
+  <div class="bg-[var(--p-surface-200)] h-screen w-full flex overflow-hidden">
       
       <aside class="w-64 bg-white border-r border-[var(--p-surface-200)] flex flex-col">
           <div class="h-16 flex items-center px-6 border-b border-[var(--p-surface-200)]">
@@ -42,8 +42,8 @@
           </nav>
       </aside>
 
-      <main class="flex-1 flex flex-col p-6 overflow-hidden"> 
-          <div class="bg-white rounded-lg shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
+      <main class="flex-1 flex flex-col p-4 overflow-hidden"> 
+          <div class="bg-white rounded-lg shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-300)]">
               
               <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
                   <div class="flex items-center gap-3">
@@ -155,7 +155,7 @@
                       <Column :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-end gap-2 pr-2">
-                                <Button icon="pi pi-pencil" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'"/>
+                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'"/>
                                 <Button 
                                     icon="pi pi-trash" 
                                     variant="outlined" 
@@ -435,7 +435,7 @@ const accessHome = () => {
 <style scoped>
 :deep(.procedure-table) {
     border-radius: 0.5rem; 
-    border: 1px solid var(--p-surface-200); 
+    border: 1.5px solid var(--p-surface-300); 
     overflow: hidden; 
 }
 

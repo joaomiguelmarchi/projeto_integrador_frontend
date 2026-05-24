@@ -1,60 +1,104 @@
 <template>
-  <div class="login-wrapper">
-    
-    <div class="login-container">
-      <div class="header-section">
-        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="login-logo">
-        <h1 class="system-name">SMILEHUB</h1>
+  <div class="flex justify-center items-center min-h-screen bg-[radial-gradient(circle_at_10%_80%,#bc6cdb_0%,#5d5dcc_40%,#5dabcc_60%,#bc6cdb_100%)] p-8">
+    <div class="flex flex-col items-center w-full max-w-[440px]">
+      
+      <div class="flex items-center justify-center gap-4 mb-8">
+        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="w-[50px] h-auto">
+        <h1 class="text-white text-[1.75rem] font-extrabold m-0 tracking-[-1px]">SMILEHUB</h1>
       </div>
 
-      <div class="login-card">
-        <form @submit.prevent="fazerLogin" class="form-layout">
-          <div class="field-group">
-            <label for="usuario">Usuário</label>
+      <div class="bg-white p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
+        <form @submit.prevent="handleLogin" class="flex flex-col gap-5">
+          
+          <Message v-if="globalError" severity="error" :closable="false" class="m-0">
+            {{ globalError }}
+          </Message>
+
+          <div class="flex flex-col gap-2">
+            <label for="username" class="text-sm font-semibold text-slate-700">Email</label>
             <IconField>
-              <InputIcon class="pi pi-user" />
+              <InputIcon class="pi pi-envelope" />
               <InputText 
-                id="usuario" 
-                v-model="usuario" 
-                placeholder="Digite seu usuário" 
-                :invalid="!!erros.usuario"
+                id="username" 
+                v-model="username" 
+                placeholder="Digite seu email" 
+                :invalid="!!errors.username"
                 fluid 
               />
             </IconField>
-            <Message v-if="erros.usuario" severity="error" variant="simple" size="small">
-              {{ erros.usuario }}
+            <Message v-if="errors.username" severity="error" variant="simple" size="small">
+              {{ errors.username }}
             </Message>
           </div>
           
-          <div class="field-group">
-            <label for="senha">Senha</label>
+          <div class="flex flex-col gap-2">
+            <label for="password" class="text-sm font-semibold text-slate-700">Senha</label>
             <IconField>
               <InputIcon class="pi pi-lock" />
               <Password 
-                id="senha" 
-                v-model="senha" 
+                id="password" 
+                v-model="password" 
                 placeholder="Digite sua senha" 
                 :feedback="false" 
                 toggleMask 
-                :invalid="!!erros.senha"
+                :invalid="!!errors.password"
                 fluid 
               />
             </IconField>
-            <Message v-if="erros.senha" severity="error" variant="simple" size="small">
-              {{ erros.senha }}
+            <Message v-if="errors.password" severity="error" variant="simple" size="small">
+              {{ errors.password }}
             </Message>
+            
+            <div class="flex justify-end mt-1">
+              <a 
+                href="#" 
+                @click.prevent="openForgotDialog" 
+                class="text-sm font-medium text-[var(--p-primary-500)] hover:text-[var(--p-primary-600)] transition-colors"
+              >
+                Esqueci minha senha
+              </a>
+            </div>
           </div>
 
           <Button 
             type="submit" 
             label="Entrar"  
-            :loading="carregando" 
-            class="submit-button"
+            :loading="loading" 
+            class="!border-none !p-[0.85rem] font-semibold !rounded-lg mt-1"
             fluid 
           />
         </form>
       </div>
     </div>
+
+    <Dialog v-model:visible="forgotDialogVisible" :style="{ width: '450px' }" header="Recuperar Senha" :modal="true" class="p-fluid">
+        <div class="flex flex-col gap-4 py-4">
+            <span class="text-slate-600 text-sm">
+                Informe o seu e-mail de cadastro. Enviaremos as instruções para você criar uma nova senha.
+            </span>
+            <div>
+                <label for="recovery-email" class="block font-bold mb-2">E-mail</label>
+                <InputText 
+                    id="recovery-email" 
+                    type="email" 
+                    v-model.trim="recoveryEmail" 
+                    placeholder="exemplo@email.com" 
+                    autofocus 
+                    :invalid="recoverySubmitted && !recoveryEmail" 
+                    class="w-full" 
+                />
+                <small v-if="recoverySubmitted && !recoveryEmail" class="text-red-500">
+                    Por favor, informe um e-mail válido.
+                </small>
+            </div>
+        </div>
+
+        <template #footer>
+            <Button label="Cancelar" icon="pi pi-times" text @click="closeForgotDialog" />
+            <Button label="Enviar " icon="pi pi-send" @click="sendRecoveryEmail" :loading="recoveryLoading" />
+        </template>
+    </Dialog>
+
   </div>
 </template>
 
@@ -68,124 +112,98 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
+import Dialog from 'primevue/dialog' // Adicionado import do Dialog
 
-const usuario = ref('')
-const senha = ref('')
-const carregando = ref(false)
+// --- STATES ---
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
 const router = useRouter()
 
-const erros = ref({
-  usuario: '',
-  senha: ''
+// --- ERROR STATES ---
+const errors = ref({
+  username: '',
+  password: ''
 })
+const globalError = ref('')
 
-const validar = () => {
-  erros.value = { usuario: '', senha: '' }
-  let valido = true
-  if (!usuario.value.trim()) {
-    erros.value.usuario = 'O campo usuário é obrigatório.'
-    valido = false
+// --- FORGOT PASSWORD STATES ---
+const forgotDialogVisible = ref(false)
+const recoveryEmail = ref('')
+const recoverySubmitted = ref(false)
+const recoveryLoading = ref(false)
+
+// --- VALIDATION LOGIC ---
+const validateForm = () => {
+  errors.value = { username: '', password: '' }
+  let isValid = true
+  
+  if (!username.value.trim()) {
+    errors.value.username = 'O campo email é obrigatório.'
+    isValid = false
   }
-  if (!senha.value) {
-    erros.value.senha = 'O campo senha é obrigatório.'
-    valido = false
+  if (!password.value) {
+    errors.value.password = 'O campo senha é obrigatório.'
+    isValid = false
   }
-  return valido
+  return isValid
 }
 
-const fazerLogin = async () => {
-  if (!validar()) return;
+// --- LOGIN ACTIONS ---
+const handleLogin = async () => {
+  globalError.value = '';
+  
+  if (!validateForm()) return;
 
-  carregando.value = true;
+  loading.value = true;
 
   try {
-    const resultado = await AuthService.login(usuario.value, senha.value);
+    const result = await AuthService.login(username.value, password.value);
     
-    if (resultado.sucesso) {
+    if (result.sucesso) {
       localStorage.setItem('usuario_logado', 'true');
       router.push('/home');
     } else {
-      erros.value.usuario = resultado.mensagem;
-      erros.value.senha = resultado.mensagem;
+      globalError.value = result.mensagem;
     }
   } catch (error: any) {
-    erros.value.usuario = 'Erro de comunicação com o servidor';
+    globalError.value = 'Erro de comunicação com o servidor. Tente novamente mais tarde.';
   } finally {
-    carregando.value = false;
+    loading.value = false;
   }
 }
+
+// --- FORGOT PASSWORD ACTIONS ---
+const openForgotDialog = () => {
+    recoveryEmail.value = ''
+    recoverySubmitted.value = false
+    forgotDialogVisible.value = true
+}
+
+const closeForgotDialog = () => {
+    forgotDialogVisible.value = false
+}
+
+const sendRecoveryEmail = async () => {
+    recoverySubmitted.value = true
+    
+    if (!recoveryEmail.value) return
+
+    recoveryLoading.value = true
+    
+    try {
+        // Aqui você chamaria o seu AuthService, ex: await AuthService.requestPasswordReset(recoveryEmail.value)
+        // Simulando delay de rede para feedback visual
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        closeForgotDialog()
+        // Opcional: Adicionar um Toast aqui para avisar que o e-mail foi enviado com sucesso
+        
+    } catch (error) {
+        // Tratar erro (ex: e-mail não encontrado)
+        console.error(error)
+    } finally {
+        recoveryLoading.value = false
+    }
+}
 </script>
-
-<style scoped>
-.login-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: radial-gradient(circle at 10% 80%, #bc6cdb 0%, #5d5dcc 40%, #5dabcc 60%,#bc6cdb 100%);
-  padding: 2rem;
-}
-
-.login-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  max-width: 440px;
-}
-
-.header-section {
-  display: flex;
-  align-items: center; 
-  justify-content: center;
-  gap: 1rem;          
-  margin-bottom: 2rem;
-}
-
-.login-logo {
-  width: 50px;         
-  height: auto;
-}
-
-.system-name {
-  color: white;       
-  font-size: 1.75rem;
-  font-weight: 800;
-  margin: 0;
-  letter-spacing: -1px;
-}
-
-.login-card {
-  background: white;
-  padding: 3rem;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(2, 24, 71, 0.15);
-  width: 100%;
-}
-
-.form-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.field-group label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.submit-button {
-  border: none !important;
-  padding: 0.85rem !important;
-  font-weight: 600 !important;
-  border-radius: 8px !important;
-  margin-top: 0.5rem;
-}
-</style>
