@@ -3,8 +3,8 @@
     
     <header class="topbar">
       <div class="logo-area">
-        <Image :src="logoUrl" alt="Logo Odontohub" width="40" />
-        <span class="logo-text" style=" color: #2563eb;" >SMILEHUB</span>
+        <Image :src="logoUrl" alt="Logo Odontohub" width="30" />
+        <span class="text-xl font-extrabold text-[var(--p-primary-600)] tracking-tight">SMILEHUB</span>
       </div>
       
       <div class="actions-area">
@@ -63,12 +63,12 @@ import logoUrl from '../../assets/LogoAzul.png'
 
 const router = useRouter()
 const modules = ref([
-  { title: 'Cadastro de Paciente', icon: 'pi-users', route: '/patients' },
+  { title: 'Cadastro de Paciente', icon: 'pi-users', route: '/cadastroPaciente' },
   { title: 'Conta Paciente', icon: 'pi-folder', route: '/patientAcount' },
-  { title: 'Orçamento', icon: 'pi-dollar', route: '/quotation' },
+  { title: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
   { title: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
   { title: 'Faturamento', icon: 'pi-receipt', route: '/billing' },
-  { title: 'Procedimentos', icon: 'pi-list', route: '/procedures' }
+  { title: 'Procedimentos', icon: 'pi-list', route: '/procedimentos' }
 ])
 
 const accessModule = (route: string) => {
@@ -84,7 +84,7 @@ const logout = () => {
 <style scoped>
 .home-wrapper {
   min-height: 100vh;
-  background-color: var(--p-surface-50);
+  background-color: var(--p-surface-100);
   display: flex;
   flex-direction: column;
 }
@@ -99,7 +99,7 @@ const logout = () => {
 .logo-area {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .logo-text {
@@ -136,6 +136,7 @@ const logout = () => {
   border: 2px solid transparent;
   background-color: var(--p-surface-0);
   text-align: center;
+  box-shadow: 0 12px 25px rgba(12, 62, 119, 0.1);
 }
 
 .module-card:hover {

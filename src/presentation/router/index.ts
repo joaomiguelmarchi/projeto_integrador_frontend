@@ -2,9 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
 import ProceduresView from '../views/ProceduresView.vue'
-import PatientAcountView from '../views/PatientAcountView.vue'
 import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
+import QuotationView from '../views/QuotationView.vue'
 
 const routes = [
   {
@@ -17,30 +17,30 @@ const routes = [
     component: LoginView
   },
   {
-    path: '/resetPassword',
-    name: 'resetPassword',
+    path: '/redefinirSenha',
+    name: 'redefinirSenha',
     component: ResetPasswordView
   },
   {
-    path: '/home',
-    name: 'home',
+    path: '/inicio',
+    name: 'inicio',
     component: HomeView,
-    meta: { requiresAuth: true } 
+    //meta: { requiresAuth: true } 
   },
   {
-    path: '/procedures',
-    name: 'procedures',
+    path: '/procedimentos',
+    name: 'procedimentos',
     component: ProceduresView
   },
   {
-    path: '/patientAcount',
-    name: 'patientAcount',
-    component: PatientAcountView
+    path: '/cadastroPaciente',
+    name: 'cadastroPaciente',
+    component: PatientRegistrationView
   },
   {
-    path: '/patientRegistration',
-    name: 'patientRegistration',
-    component: PatientRegistrationView
+    path: '/orcamento',
+    name: 'orcamento',
+    component: QuotationView
   }
 ]
 
@@ -57,7 +57,7 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth && !isAuthenticated) {
     next('/login')
   } else if (to.path === '/login' && isAuthenticated) {
-    next('/home')
+    next('/inicio')
   } else {
     next()
   }
