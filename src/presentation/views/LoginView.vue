@@ -3,11 +3,11 @@
     <div class="flex flex-col items-center w-full max-w-[440px]">
       
       <div class="flex items-center justify-center gap-4 mb-8">
-        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="w-[50px] h-auto">
+        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="w-[40px] h-auto">
         <h1 class="text-white text-[1.75rem] font-extrabold m-0 tracking-[-1px]">SMILEHUB</h1>
       </div>
 
-      <div class="bg-white p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
+      <div class="bg-[var(--p-surface-0)] p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
         <form @submit.prevent="handleLogin" class="flex flex-col gap-5">
           
           <Message v-if="globalError" severity="error" :closable="false" class="m-0">
@@ -112,7 +112,7 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
-import Dialog from 'primevue/dialog' // Adicionado import do Dialog
+import Dialog from 'primevue/dialog' 
 
 // --- STATES ---
 const username = ref('')
@@ -192,15 +192,13 @@ const sendRecoveryEmail = async () => {
     recoveryLoading.value = true
     
     try {
-        // Aqui você chamaria o seu AuthService, ex: await AuthService.requestPasswordReset(recoveryEmail.value)
-        // Simulando delay de rede para feedback visual
+        // await AuthService.requestPasswordReset(recoveryEmail.value)
         await new Promise(resolve => setTimeout(resolve, 1000))
         
         closeForgotDialog()
-        // Opcional: Adicionar um Toast aqui para avisar que o e-mail foi enviado com sucesso
+        // Adicionar um Toast aqui para avisar que o e-mail foi enviado com sucesso
         
     } catch (error) {
-        // Tratar erro (ex: e-mail não encontrado)
         console.error(error)
     } finally {
         recoveryLoading.value = false

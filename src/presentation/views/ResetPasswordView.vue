@@ -7,7 +7,7 @@
         <h1 class="text-white text-[1.75rem] font-extrabold m-0 tracking-[-1px]">SMILEHUB</h1>
       </div>
 
-      <div class="bg-white p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
+      <div class="bg-[var(--p-surface-0)] p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
         <form @submit.prevent="handleResetPassword" class="flex flex-col gap-5">
           
           <div class="text-center mb-2">
@@ -110,7 +110,7 @@ onMounted(() => {
   if (queryToken) {
     token.value = queryToken.toString()
   } else {
-    globalError.value = 'Token de redefinição inválido ou ausente. Solicite um novo link.'
+    //globalError.value = 'Token de redefinição inválido ou ausente. Solicite um novo link.'
   }
 })
 

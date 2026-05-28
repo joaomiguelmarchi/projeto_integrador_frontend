@@ -13,7 +13,12 @@ export const AuthService = {
       };
 
     } catch (error: any) {
-      const mensagemErro = error.response?.data?.error?.message || 'Credenciais incorretas.';
+
+      console.error('=== [ERRO] Falha na Requisição ===', error);
+      console.log('Detalhes do Erro (Data):', error.response?.data);
+      console.log('Status HTTP:', error.response?.status);
+
+      const mensagemErro = error.response?.data?.error || 'Erro inesperado!';
       
       return { 
         sucesso: false, 
