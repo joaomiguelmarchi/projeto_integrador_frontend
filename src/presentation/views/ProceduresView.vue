@@ -280,20 +280,20 @@ interface Procedure {
 
 // --- MOCK DATA ---
 const proceduresMock = ref<Procedure[]>([
-    { id: '#0000001', status: 'Ativo', description: 'Clareamento Dental', price: 850.00, category: 'Procedimento'},
-    { id: '#0000002', status: 'Inativo', description: 'Limpeza (Profilaxia)', price: 200.00, category: 'Procedimento' },
+    { id: '#0000001', status: 'Ativo', description: 'Clareamento Dental', price: 850.00, category: 'Prevenção'},
+    { id: '#0000002', status: 'Inativo', description: 'Limpeza (Profilaxia)', price: 200.00, category: 'Prevenção' },
     { id: '#0000003', status: 'Ativo', description: 'Extração Siso', price: 450.00, category: 'Cirurgia' },    
-    { id: '#0000004', status: 'Ativo', description: 'Restauração Resina', price: 150.00, category: 'Procedimento' },
+    { id: '#0000004', status: 'Ativo', description: 'Restauração Resina', price: 150.00, category: 'Periodontia' },
     { id: '#0000005', status: 'Ativo', description: 'Implante Dentário', price: 2450.00, category: 'Cirurgia' },
     { id: '#0000006', status: 'Ativo', description: 'Tratamento de Canal', price: 600.00, category: 'Cirurgia' },
-    { id: '#0000007', status: 'Inativo', description: 'Prótese Fixa', price: 1200.00, category: 'Laboratório' },
-    { id: '#0000008', status: 'Ativo', description: 'Manutenção Aparelho', price: 120.00, category: 'Procedimento' },
+    { id: '#0000007', status: 'Inativo', description: 'Prótese Fixa', price: 1200.00, category: 'Radiologia' },
+    { id: '#0000008', status: 'Ativo', description: 'Manutenção Aparelho', price: 120.00, category: 'Ortodontia' },
     { id: '#0000009', status: 'Ativo', description: 'Enxerto Ósseo', price: 1110.00, category: 'Cirurgia' },
-    { id: '#0000010', status: 'Inativo', description: 'Coroa de Porcelana', price: 950.00, category: 'Laboratório' },
-    { id: '#0000011', status: 'Inativo', description: 'Placa de Bruxismo', price: 350.00, category: 'Laboratório' },
+    { id: '#0000010', status: 'Inativo', description: 'Coroa de Porcelana', price: 950.00, category: 'Implantes' },
+    { id: '#0000011', status: 'Inativo', description: 'Placa de Bruxismo', price: 350.00, category: 'Prótese' },
 ]);
 
-const categories = ref(['Cirurgia', 'Procedimento', 'Laboratório']);
+const categories = ref(['Prevenção', 'Dentística', 'Clareamento', 'Endodontia', 'Periodontia', 'Cirurgia', 'Prótese', 'Radiologia', 'Ortodontia', 'Implantes']);
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
