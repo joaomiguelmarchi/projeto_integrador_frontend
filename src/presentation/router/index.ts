@@ -5,6 +5,7 @@ import ProceduresView from '../views/ProceduresView.vue'
 import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
+import AttendanceView from '../views/AttendanceView.vue'
 
 const routes = [
   {
@@ -41,7 +42,13 @@ const routes = [
     path: '/orcamento',
     name: 'orcamento',
     component: QuotationView
+  },
+   {
+    path: '/atendimento',
+    name: 'atendimento',
+    component: AttendanceView
   }
+
 ]
 
 const router = createRouter({
