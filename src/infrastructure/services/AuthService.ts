@@ -1,5 +1,16 @@
 import { api } from '../http/api';
 
+const TOKEN_STORAGE_KEY = 'auth_token';
+const TOKEN_COOKIE_NAME = 'token';
+
+const getTokenFromResponse = (data: any): string | null => {
+  return data?.token || data?.accessToken || data?.data?.token || null;
+};
+
+const setTokenCookie = (token: string) => {
+  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+};
+
 export const AuthService = {
   async login(email: string, senha: string) {
     try {
@@ -8,8 +19,16 @@ export const AuthService = {
         password: senha     
       });
 
+      const token = getTokenFromResponse(response.data);
+
+      // if (token) {
+      //   localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      //   setTokenCookie(token);
+      // }
+
       return { 
-        sucesso: true 
+        sucesso: true,
+        token
       };
 
     } catch (error: any) {

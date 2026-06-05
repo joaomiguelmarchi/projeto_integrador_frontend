@@ -56,7 +56,7 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const isAuthenticated = localStorage.getItem('usuario_logado')   // Substituir 'usuario_logado' pela chave AuthService

@@ -123,8 +123,18 @@ const queue = ref<Attendance[]>([])
 const currentAlert = ref('')
 let ws: WebSocket | null = null
 
-const API_BASE_URL = 'http://localhost:9000/attendance'
-const WS_URL = 'ws://localhost:9000/attendance/ws'
+const API_BASE_URL = 'http://localhost:9090/attendance'
+const WS_URL = 'ws://localhost:9090/attendance/ws'
+const TOKEN_STORAGE_KEY = 'auth_token'
+const TOKEN_COOKIE_NAME = 'token'
+
+const syncTokenCookie = () => {
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+
+  if (!token) return
+
+  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax`
+}
 
 // ==========================================
 // 1. WebSocket - Comunicação em Tempo Real
@@ -159,9 +169,14 @@ const registerPatient = async () => {
 
   isLoading.value = true
   try {
+    syncTokenCookie()
+
     const response = await fetch(`${API_BASE_URL}/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
       body: JSON.stringify({ patientName: newPatientName.value })
     })
 
@@ -182,7 +197,11 @@ const registerPatient = async () => {
 // ==========================================
 const fetchQueue = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/list`)
+    syncTokenCookie()
+
+    const response = await fetch(`${API_BASE_URL}/list`, {
+      credentials: 'include'
+    })
     if (response.ok) {
       const data = await response.json()
       queue.value = data.data || data 
