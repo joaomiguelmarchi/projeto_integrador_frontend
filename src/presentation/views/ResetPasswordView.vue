@@ -2,10 +2,7 @@
   <div class="flex justify-center items-center min-h-screen bg-[radial-gradient(circle_at_10%_80%,#bc6cdb_0%,#5d5dcc_40%,#5dabcc_60%,#bc6cdb_100%)] p-8">
     <div class="flex flex-col items-center w-full max-w-[440px]">
       
-      <div class="flex items-center justify-center gap-4 mb-8">
-        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="w-[50px] h-auto">
-        <h1 class="text-white text-[1.75rem] font-extrabold m-0 tracking-[-1px]">SMILEHUB</h1>
-      </div>
+      <AppBrand variant="white" container-class="flex items-center justify-center gap-4 mb-8" logo-class="w-[50px] h-auto" />
 
       <div class="bg-[var(--p-surface-0)] p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
         <form @submit.prevent="handleResetPassword" class="flex flex-col gap-5">
@@ -86,6 +83,7 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
+import AppBrand from '../components/AppBrand.vue'
 // import { AuthService } from '../../infrastructure/services/AuthService'
 
 const password = ref('')

@@ -1,55 +1,6 @@
 <template>
-    <div class="bg-[var(--p-surface-100)] h-screen w-full flex overflow-hidden font-sans text-[var(--p-surface-800)]">
-        
-        <aside class="w-64 bg-[var(--p-surface-100)] border-r border-[var(--p-surface-200)] flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.04)]">
-            <div class="h-[72px] flex items-center px-6 border-b border-transparent gap-3" >
-                <Image :src="logoUrl" alt="Logo Odontohub" width="30" />
-                <span class="text-xl font-extrabold text-[var(--p-primary-600)] tracking-tight">SMILEHUB</span>
-            </div>
-            
-            <nav class="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
-                <button @click="accessHome()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-home text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Início</span>
-                </button>
-                <button @click="accessPatientRegistration()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-users text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Cadastro de Paciente</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-folder text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Conta Paciente</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--p-surface-0)] text-[var(--p-primary-600)] transition-all text-left cursor-pointer shadow-sm">
-                    <i class="pi pi-dollar text-[var(--p-primary-600)]"></i>
-                    <span class="font-semibold text-[15px]">Orçamento</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-calendar text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Agenda</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-receipt text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Faturamento</span>
-                </button>
-                <button @click="accessProcedures()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-list text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Procedimentos</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group mt-auto">
-                    <i class="pi pi-cog text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Configurações</span>
-                </button>
-            </nav>
-        </aside>
+    <AppLayout title="Orçamentos">
 
-        <main class="flex-1 flex flex-col overflow-hidden"> 
-            
-            <header class="h-[72px] bg-[var(--p-surface-100)] flex items-center justify-between px-8 shrink-0">
-                <h1 class="text-[22px] font-bold text-[var(--p-surface-600)] m-0 tracking-tight">Orçamentos</h1>
-            </header>
-
-            <div class="flex-1 px-8 pb-8 overflow-hidden flex flex-col">
                 <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
                     
                     <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
@@ -83,7 +34,7 @@
                             v-model:contextMenuSelection="contextMenuSelection"
                             @rowContextmenu="onRowContextMenu"
                             :value="quotationsMock" 
-                            class="quotation-table flex-1 px-4" 
+                            class="app-table flex-1 px-4" 
                             scrollable 
                             scrollHeight="flex"
                             selectionMode="single"
@@ -170,9 +121,7 @@
                         </DataTable>
                     </div>
                 </div>
-            </div>
-        </main>
-    </div>
+    </AppLayout>
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
@@ -300,9 +249,7 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import ContextMenu from 'primevue/contextmenu';
-import { useRouter } from 'vue-router';
-import logoUrl from '../../assets/LogoAzul.png';
-import Image from 'primevue/image';
+import AppLayout from '../components/AppLayout.vue';
 import InputNumber from 'primevue/inputnumber';
 import InputGroup from 'primevue/inputgroup';
 import InputGroupAddon from 'primevue/inputgroupaddon';
@@ -570,41 +517,6 @@ const executeDelete = () => {
 const rowClass = (data: Quotation) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
-
-// --- ROUTER NAVIGATION ---
-const router = useRouter();
-const accessHome = () => { router.push('/inicio'); };
-const accessPatientRegistration = () => { router.push('/cadastroPaciente'); };
-const accessProcedures = () => { router.push('/procedimentos'); };
+
 </script>
 
-<style scoped>
-:deep(.quotation-table .p-datatable-thead > tr > th) {
-    background-color: transparent;
-    color: var(--p-surface-600);
-    border-bottom: 1px solid var(--p-surface-200); 
-    padding: 1rem 0.75rem;
-}
-
-:deep(.quotation-table .p-datatable-thead > tr:nth-child(2) > th) {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    background-color: transparent;
-    border-bottom: 1px solid var(--p-surface-200);
-}
-
-:deep(.quotation-table .p-datatable-thead > tr > th:first-child),
-:deep(.quotation-table .p-datatable-tbody > tr > td:first-child) { 
-    padding-left: 0; 
-}
-
-:deep(.quotation-table .p-datatable-thead > tr > th:last-child),
-:deep(.quotation-table .p-datatable-tbody > tr > td:last-child) { 
-    padding-right: 0; 
-}
-
-:deep(.quotation-table .p-datatable-tbody > tr > td) {
-    padding: 1rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-200); 
-}
-</style>
