@@ -1,18 +1,40 @@
 <template>
+    <Toast :pt="{
+      root: { class: 'w-full max-w-[400px]' },
+      message: { class: 'bg-[var(--p-surface-0)] rounded-2xl shadow-md border border-[var(--p-surface-200)]' },
+      content: { class: 'p-0' }, /* Remove o padding padrão para controlarmos no slot */
+      text: { class: 'w-full' }, /* Garante que o conteúdo ocupe todo o espaço */
+      icon: { class: 'hidden' }, /* Oculta o ícone padrão do PrimeVue */
+      closeButton: { class: 'hidden' } /* Oculta o botão de fechar padrão */
+  }">
+    <template #message="{ message }">
+      <div class="flex items-start gap-4 p-4 w-full">
+        
+        <i v-if="message.severity !== 'error'" 
+          class="pi text-2xl mt-0.5 text-[var(--p-primary-500)]"
+          :class="message.severity === 'success' ? 'pi-check-circle' : 'pi-info-circle'">
+        </i>
+
+        <div class="flex flex-col flex-1 gap-1">
+          <span class="font-bold text-base" 
+                :class="message.severity === 'error' ? 'text-red-500' : 'text-[var(--p-surface-800)]'">
+            {{ message.summary }}
+          </span>
+          <span class="text-sm" 
+                :class="message.severity === 'error' ? 'text-red-500' : 'text-[var(--p-surface-600)]'">
+            {{ message.detail }}
+          </span>
+        </div>        
+      </div>
+    </template>
+  </Toast>
   <div class="flex justify-center items-center min-h-screen bg-[radial-gradient(circle_at_10%_80%,#bc6cdb_0%,#5d5dcc_40%,#5dabcc_60%,#bc6cdb_100%)] p-8">
     <div class="flex flex-col items-center w-full max-w-[440px]">
       
-      <div class="flex items-center justify-center gap-4 mb-8">
-        <img src="../../assets/LogoBranca.png" alt="SMILEHUB Logo" class="w-[40px] h-auto">
-        <h1 class="text-white text-[1.75rem] font-extrabold m-0 tracking-[-1px]">SMILEHUB</h1>
-      </div>
+      <AppBrand variant="white" container-class="flex items-center justify-center gap-4 mb-8" logo-class="w-[40px] h-auto" />
 
       <div class="bg-[var(--p-surface-0)] p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
         <form @submit.prevent="handleLogin" class="flex flex-col gap-5">
-          
-          <Message v-if="globalError" severity="error" :closable="false" class="m-0">
-            {{ globalError }}
-          </Message>
 
           <div class="flex flex-col gap-2">
             <label for="username" class="text-sm font-semibold text-slate-700">Email</label>
@@ -113,19 +135,22 @@ import Message from 'primevue/message'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import Dialog from 'primevue/dialog' 
+import AppBrand from '../components/AppBrand.vue'
+import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
 
 // --- STATES ---
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const router = useRouter()
+const toast = useToast()
 
 // --- ERROR STATES ---
 const errors = ref({
   username: '',
   password: ''
 })
-const globalError = ref('')
 
 // --- FORGOT PASSWORD STATES ---
 const forgotDialogVisible = ref(false)
@@ -138,10 +163,17 @@ const validateForm = () => {
   errors.value = { username: '', password: '' }
   let isValid = true
   
+  // Regex simples para validação de formato de e-mail
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  
   if (!username.value.trim()) {
     errors.value.username = 'O campo email é obrigatório.'
     isValid = false
+  } else if (!emailRegex.test(username.value)) {
+    errors.value.username = 'Por favor, insira um e-mail válido.'
+    isValid = false
   }
+
   if (!password.value) {
     errors.value.password = 'O campo senha é obrigatório.'
     isValid = false
@@ -151,7 +183,6 @@ const validateForm = () => {
 
 // --- LOGIN ACTIONS ---
 const handleLogin = async () => {
-  globalError.value = '';
   
   if (!validateForm()) return;
 
@@ -161,13 +192,23 @@ const handleLogin = async () => {
     const result = await AuthService.login(username.value, password.value);
     
     if (result.sucesso) {
-      localStorage.setItem('usuario_logado', 'true');
-      router.push('/home');
+      AuthService.saveSession(result.data);
+      router.push('/inicio');
     } else {
-      globalError.value = result.mensagem;
+      toast.add({ 
+        severity: 'error', 
+        summary: 'Erro de Autenticação', 
+        detail: result.mensagem || 'Não foi possível realizar o login.', 
+        life: 5000 
+      });
     }
   } catch (error: any) {
-    globalError.value = 'Erro de comunicação com o servidor. Tente novamente mais tarde.';
+    toast.add({ 
+      severity: 'error', 
+      summary: 'Erro de Conexão', 
+      detail: 'Erro de comunicação com o servidor. Tente novamente mais tarde.', 
+      life: 5000 
+    });
   } finally {
     loading.value = false;
   }
@@ -188,7 +229,6 @@ const sendRecoveryEmail = async () => {
     recoverySubmitted.value = true
     
     if (!recoveryEmail.value) return
-
     recoveryLoading.value = true
     
     try {
@@ -196,10 +236,20 @@ const sendRecoveryEmail = async () => {
         await new Promise(resolve => setTimeout(resolve, 1000))
         
         closeForgotDialog()
-        // Adicionar um Toast aqui para avisar que o e-mail foi enviado com sucesso
+        toast.add({ 
+          severity: 'success', 
+          summary: 'E-mail enviado', 
+          detail: 'As instruções de recuperação foram enviadas para seu e-mail.', 
+          life: 5000 
+        });
         
     } catch (error) {
-        console.error(error)
+        toast.add({ 
+          severity: 'error', 
+          summary: 'Erro', 
+          detail: 'Não foi possível enviar o e-mail de recuperação.', 
+          life: 5000 
+        });
     } finally {
         recoveryLoading.value = false
     }

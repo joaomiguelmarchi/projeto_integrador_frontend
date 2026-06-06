@@ -15,3 +15,32 @@ body {
     padding: 0; 
     -webkit-font-smoothing: antialiased;
 }
+
+.app-table .p-datatable-thead > tr > th {
+    background-color: transparent;
+    color: var(--p-surface-600);
+    border-bottom: 1px solid var(--p-surface-200);
+    padding: 1rem 0.75rem;
+}
+
+.app-table .p-datatable-thead > tr:nth-child(2) > th {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    background-color: transparent;
+    border-bottom: 1px solid var(--p-surface-200);
+}
+
+.app-table .p-datatable-thead > tr > th:first-child,
+.app-table .p-datatable-tbody > tr > td:first-child {
+    padding-left: 0;
+}
+
+.app-table .p-datatable-thead > tr > th:last-child,
+.app-table .p-datatable-tbody > tr > td:last-child {
+    padding-right: 0;
+}
+
+.app-table .p-datatable-tbody > tr > td {
+    padding: 1rem 0.75rem;
+    border-bottom: 1px solid var(--p-surface-200);
+}
