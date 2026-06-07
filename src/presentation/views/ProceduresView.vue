@@ -43,6 +43,11 @@
                     filterDisplay="row"
                     :globalFilterFields="['status', 'id', 'description', 'price', 'category']"
                     :rowClass="rowClass"
+                    paginator
+                    :rows="10"
+                    :rowsPerPageOptions="[5, 10, 20]"
+                    paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
+                    currentPageReportTemplate="{first} - {last} de {totalRecords}"
                     >   
                         <template #empty> 
                             <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
@@ -381,4 +386,4 @@ const rowClass = (data: Procedure) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
 </script>
-
+

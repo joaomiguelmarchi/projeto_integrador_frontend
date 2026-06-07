@@ -43,6 +43,11 @@
                             filterDisplay="row"
                             :globalFilterFields="['status', 'id', 'name', 'cpf', 'mobilePhone']"
                             :rowClass="rowClass"
+                            paginator
+                            :rows="10"
+                            :rowsPerPageOptions="[5, 10, 20]"
+                            paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
+                            currentPageReportTemplate="{first} - {last} de {totalRecords}"
                         >   
                             <template #empty> 
                                 <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
@@ -332,6 +337,30 @@ const patientsMock = ref<Patient[]>([
     { 
         id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
         address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
     }
 ]);
 
@@ -469,4 +498,4 @@ const rowClass = (data: Patient) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
 </script>
-
+
