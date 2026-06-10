@@ -1,267 +1,149 @@
 <template>
+    <Toast />
     <AppLayout title="Pacientes">
+        <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
+            <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
+                <IconField>
+                    <InputIcon class="flex items-center">
+                        <i class="pi pi-search text-[var(--p-surface-400)]" />
+                    </InputIcon>
+                    <InputText
+                        v-model="patientFilters.global.value"
+                        placeholder="Pesquisar"
+                        class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
+                    />
+                </IconField>
 
-                <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
-                    
-                    <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
-                        <div class="flex items-center gap-2">
-                            <IconField>
-                                <InputIcon class="flex items-center">
-                                    <i class="pi pi-search text-[var(--p-surface-400)]" />
-                                </InputIcon>
-                                <InputText 
-                                    v-model="patientFilters['global'].value" 
-                                    placeholder="Pesquisar" 
-                                    class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow" 
-                                />
-                            </IconField>
+                <Button
+                    icon="pi pi-plus"
+                    label="Adicionar"
+                    class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center !rounded-lg ml-2 shadow-md"
+                    @click="openAddDialog"
+                />
+            </div>
+
+            <div class="flex-1 flex flex-col overflow-hidden px-2 pb-2">
+                <DataTable
+                    v-model:filters="patientFilters"
+                    v-model:selection="selectedPatient"
+                    :value="patients"
+                    :loading="loading"
+                    class="app-table flex-1 px-4"
+                    scrollable
+                    scrollHeight="flex"
+                    selectionMode="single"
+                    :metaKeySelection="metaKey"
+                    dataKey="id"
+                    filterDisplay="row"
+                    :globalFilterFields="['status', 'displayId', 'name', 'cpf', 'mobilePhone']"
+                    :rowClass="rowClass"
+                    paginator
+                    :rows="10"
+                    :rowsPerPageOptions="[5, 10, 20]"
+                    paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
+                    currentPageReportTemplate="{first} - {last} de {totalRecords}"
+                >
+                    <template #empty>
+                        <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
+                            <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
+                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum paciente encontrado.</p>
                         </div>
-                        
-                        <div class="flex items-center gap-3">
-                            <Button 
-                                icon="pi pi-plus" 
-                                label="Adicionar" 
-                                class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center !rounded-lg ml-2 shadow-md" 
-                                @click="openAddDialog"
+                    </template>
+
+                    <template #loading>
+                        <div class="text-center py-8 text-[var(--p-surface-500)] font-medium flex items-center justify-center gap-3">
+                            <i class="pi pi-spin pi-spinner text-xl"></i>
+                            Carregando dados...
+                        </div>
+                    </template>
+
+                    <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem;">
+                        <template #body="{ data }">
+                            <div class="flex justify-left w-full pl-2">
+                                <span class="px-4 py-1.5 rounded-full inline-flex items-center gap-2 border border-[var(--p-surface-300)] bg-[var(--p-surface-0)] text-[var(--p-surface-500)]">
+                                    <span class="w-2.5 h-2.5 rounded-full" :style="data.status === 'Ativo' ? 'background-color: var(--p-primary-1000)' : 'background-color: var(--p-surface-500)'"></span>
+                                    {{ data.status }}
+                                </span>
+                            </div>
+                        </template>
+                        <template #filter="{ filterModel, filterCallback }">
+                            <Select
+                                v-model="filterModel.value"
+                                @change="filterCallback()"
+                                :options="['Ativo', 'Inativo']"
+                                placeholder="Todos"
+                                class="w-full h-[36px] text-sm bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-md flex items-center"
+                                :showClear="true"
                             />
-                        </div>
-                    </div>
+                        </template>
+                    </Column>
 
-                    <div class="flex-1 flex flex-col overflow-hidden px-2 pb-2">
-                        <DataTable 
-                            v-model:filters="patientFilters"
-                            v-model:selection="selectedPatient"
-                            v-model:contextMenuSelection="contextMenuSelection"
-                            @rowContextmenu="onRowContextMenu"
-                            :value="patientsMock" 
-                            class="app-table flex-1 px-4" 
-                            scrollable 
-                            scrollHeight="flex"
-                            selectionMode="single"
-                            :metaKeySelection="metaKey" 
-                            dataKey="id"
-                            filterDisplay="row"
-                            :globalFilterFields="['status', 'id', 'name', 'cpf', 'mobilePhone']"
-                            :rowClass="rowClass"
-                            paginator
-                            :rows="10"
-                            :rowsPerPageOptions="[5, 10, 20]"
-                            paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
-                            currentPageReportTemplate="{first} - {last} de {totalRecords}"
-                        >   
-                            <template #empty> 
-                                <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
-                                    <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                                    <p class="font-medium text-[var(--p-surface-500)]">Nenhum paciente encontrado.</p>
-                                </div> 
-                            </template>
-                            
-                            <template #loading> 
-                                <div class="text-center py-8 text-[var(--p-surface-500)] font-medium flex items-center justify-center gap-3">
-                                    <i class="pi pi-spin pi-spinner text-xl"></i>
-                                    Carregando dados...
-                                </div> 
-                            </template>
+                    <Column field="displayId" header="ID Paciente" :showFilterMenu="false" style="width: 12rem;">
+                        <template #filter="{ filterModel, filterCallback }">
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                        </template>
+                    </Column>
 
-                            <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem;">
-                                <template #body="{ data }">
-                                    <div class="flex justify-left w-full pl-2">
-                                        <span 
-                                            class="px-4 py-1.5 rounded-full inline-flex items-center gap-2 border border-[var(--p-surface-300)] bg-[var(--p-surface-0)] text-[var(--p-surface-500)]">
-                                            <span class="w-2.5 h-2.5 rounded-full" :style="data.status === 'Ativo' ? 'background-color: var(--p-primary-1000)' : 'background-color: var(--p-surface-500)'"></span>
-                                            {{ data.status }}
-                                        </span>
-                                    </div>
-                                </template>
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <Select 
-                                        v-model="filterModel.value" 
-                                        @change="filterCallback()" 
-                                        :options="['Ativo', 'Inativo']" 
-                                        placeholder="Todos" 
-                                        class="w-full h-[36px] text-sm bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-md flex items-center" 
-                                        :showClear="true" 
-                                    />
-                                </template>
-                            </Column>
+                    <Column field="name" header="Nome do Paciente" :showFilterMenu="false">
+                        <template #filter="{ filterModel, filterCallback }">
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                        </template>
+                    </Column>
 
-                            <Column field="id" header="ID Paciente" :showFilterMenu="false" style="width: 12rem;">
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full"  />
-                                </template>
-                            </Column>
+                    <Column field="cpf" header="CPF" :showFilterMenu="false" style="width: 12rem">
+                        <template #filter="{ filterModel, filterCallback }">
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                        </template>
+                    </Column>
 
-                            <Column field="name" header="Nome do Paciente" :showFilterMenu="false">
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
-                                </template>
-                            </Column>
+                    <Column field="mobilePhone" header="Celular" :showFilterMenu="false" style="width: 12rem">
+                        <template #filter="{ filterModel, filterCallback }">
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                        </template>
+                    </Column>
 
-                            <Column field="cpf" header="CPF" :showFilterMenu="false" style="width: 12rem">
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
-                                </template>
-                            </Column>
-
-                            <Column field="mobilePhone" header="Celular" :showFilterMenu="false" style="width: 12rem">
-                                <template #filter="{ filterModel, filterCallback }">
-                                    <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
-                                </template>
-                            </Column>
-
-                            <Column :exportable="false" style="min-width: 8rem">
-                                <template #body="slotProps">
-                                    <div class="flex justify-center gap-2 pr-2">
-                                        <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'"/>
-                                        <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                    </div>
-                                </template>
-                            </Column>
-                        </DataTable>
-                    </div>
-                </div>
+                    <Column :exportable="false" style="min-width: 8rem">
+                        <template #body="slotProps">
+                            <div class="flex justify-center gap-2 pr-2">
+                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" />
+                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" />
+                            </div>
+                        </template>
+                    </Column>
+                </DataTable>
+            </div>
+        </div>
     </AppLayout>
-
-    <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
     <Dialog v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="p-fluid">
         <div class="grid grid-cols-12 gap-4 py-4">
-            
-            <div class="col-span-12 md:col-span-8">
-                <label for="add-name" class="block font-bold mb-2">Nome Completo</label>
-                <InputText id="add-name" v-model.trim="currentPatient.name" required="true" autofocus :invalid="submitted && !currentPatient.name" class="w-full" />
-                <small v-if="submitted && !currentPatient.name" class="text-red-500">O nome é obrigatório.</small>
-            </div>
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-cpf" class="block font-bold mb-2">CPF</label>
-                <InputText id="add-cpf" v-model="currentPatient.cpf" placeholder="000.000.000-00" :invalid="submitted && !currentPatient.cpf" class="w-full" />
-                <small v-if="submitted && !currentPatient.cpf" class="text-red-500">O CPF é obrigatório.</small>
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-birth" class="block font-bold mb-2">Data de Nascimento</label>
-                <InputText id="add-birth" type="date" v-model="currentPatient.birthDate" class="w-full" />
-            </div>
-            
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-gender" class="block font-bold mb-2">Sexo</label>
-                <Select id="add-gender" v-model="currentPatient.gender" :options="genders" placeholder="Selecione" class="w-full" />
-            </div>
-
-            <div class="col-span-12">
-                <label for="add-responsible" class="block font-bold mb-2">Nome do Responsável</label>
-                <InputText id="add-responsible" v-model="currentPatient.responsibleName" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-zip" class="block font-bold mb-2">CEP</label>
-                <InputText id="add-zip" v-model="currentPatient.zipCode" placeholder="00000-000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-8">
-                <label for="add-address" class="block font-bold mb-2">Endereço Completo</label>
-                <InputText id="add-address" v-model="currentPatient.address" class="w-full" />
-            </div>
-            
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-home-phone" class="block font-bold mb-2">Telefone Residencial</label>
-                <InputText id="add-home-phone" v-model="currentPatient.homePhone" placeholder="(00) 0000-0000" class="w-full" />
-            </div>
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-mobile-phone" class="block font-bold mb-2">Celular Pessoal</label>
-                <InputText id="add-mobile-phone" v-model="currentPatient.mobilePhone" placeholder="(00) 90000-0000" class="w-full" />
-            </div>
-            <div class="col-span-12 md:col-span-4">
-                <label for="add-work-phone" class="block font-bold mb-2">Celular Comercial</label>
-                <InputText id="add-work-phone" v-model="currentPatient.workMobilePhone" placeholder="(00) 90000-0000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-6">
-                <label for="add-email" class="block font-bold mb-2">E-mail</label>
-                <InputText id="add-email" type="email" v-model="currentPatient.email" placeholder="paciente@exemplo.com" class="w-full" />
-            </div>
-            <div class="col-span-12 md:col-span-6">
-                <label for="add-profession" class="block font-bold mb-2">Profissão</label>
-                <InputText id="add-profession" v-model="currentPatient.profession" class="w-full" />
-            </div>
-
+            <PatientFormFields
+                :patient="currentPatient"
+                :submitted="submitted"
+                :genders="genders"
+                prefix="add"
+            />
         </div>
 
         <template #footer>
             <Button label="Cancelar" icon="pi pi-times" text @click="closeAddDialog" />
-            <Button label="Salvar" icon="pi pi-check" @click="saveAddedPatient" />
+            <Button label="Salvar" icon="pi pi-check" :loading="saving" @click="saveAddedPatient" />
         </template>
     </Dialog>
 
     <Dialog v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="p-fluid">
         <div class="grid grid-cols-12 gap-4 py-4">
-            
-            <div class="col-span-12 md:col-span-8">
-                <label for="edit-name" class="block font-bold mb-2">Nome Completo</label>
-                <InputText id="edit-name" v-model.trim="currentPatient.name" required="true" autofocus :invalid="submitted && !currentPatient.name" class="w-full" />
-                <small v-if="submitted && !currentPatient.name" class="text-red-500">O nome é obrigatório.</small>
-            </div>
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-cpf" class="block font-bold mb-2">CPF</label>
-                <InputText id="edit-cpf" v-model="currentPatient.cpf" placeholder="000.000.000-00" :invalid="submitted && !currentPatient.cpf" class="w-full" />
-                <small v-if="submitted && !currentPatient.cpf" class="text-red-500">O CPF é obrigatório.</small>
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-birth" class="block font-bold mb-2">Data de Nascimento</label>
-                <InputText id="edit-birth" type="date" v-model="currentPatient.birthDate" class="w-full" />
-            </div>
-            
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-gender" class="block font-bold mb-2">Sexo</label>
-                <Select id="edit-gender" v-model="currentPatient.gender" :options="genders" placeholder="Selecione" class="w-full" />
-            </div>
-
-            <div class="col-span-12">
-                <label for="edit-responsible" class="block font-bold mb-2">Nome do Responsável (se menor)</label>
-                <InputText id="edit-responsible" v-model="currentPatient.responsibleName" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-zip" class="block font-bold mb-2">CEP</label>
-                <InputText id="edit-zip" v-model="currentPatient.zipCode" placeholder="00000-000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-8">
-                <label for="edit-address" class="block font-bold mb-2">Endereço Completo</label>
-                <InputText id="edit-address" v-model="currentPatient.address" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-home-phone" class="block font-bold mb-2">Telefone Residencial</label>
-                <InputText id="edit-home-phone" v-model="currentPatient.homePhone" placeholder="(00) 0000-0000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-mobile-phone" class="block font-bold mb-2">Celular Pessoal</label>
-                <InputText id="edit-mobile-phone" v-model="currentPatient.mobilePhone" placeholder="(00) 90000-0000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-4">
-                <label for="edit-work-phone" class="block font-bold mb-2">Celular Comercial</label>
-                <InputText id="edit-work-phone" v-model="currentPatient.workMobilePhone" placeholder="(00) 90000-0000" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-6">
-                <label for="edit-email" class="block font-bold mb-2">E-mail</label>
-                <InputText id="edit-email" type="email" v-model="currentPatient.email" placeholder="paciente@exemplo.com" class="w-full" />
-            </div>
-
-            <div class="col-span-12 md:col-span-6">
-                <label for="edit-profession" class="block font-bold mb-2">Profissão</label>
-                <InputText id="edit-profession" v-model="currentPatient.profession" class="w-full" />
-            </div>
-
+            <PatientFormFields
+                :patient="currentPatient"
+                :submitted="submitted"
+                :genders="genders"
+                prefix="edit"
+            />
         </div>
 
         <template #footer>
             <Button label="Cancelar" icon="pi pi-times" text @click="closeEditDialog" />
-            <Button label="Salvar" icon="pi pi-check" @click="saveEditedPatient" />
+            <Button label="Salvar" icon="pi pi-check" :loading="saving" @click="saveEditedPatient" />
         </template>
     </Dialog>
 
@@ -269,22 +151,22 @@
         <template #header>
             <div class="flex items-center gap-3">
                 <i class="pi pi-exclamation-triangle !text-3xl text-red-500" />
-                <span class="text-xl font-bold">Confirmar Exclusão</span>
+                <span class="text-xl font-bold">Confirmar Exclusao</span>
             </div>
         </template>
         <div class="py-4">
-            <span v-if="currentPatient">Você tem certeza que quer deletar o paciente <b>{{ currentPatient.name }}</b>?</span>
+            <span v-if="currentPatient">Voce tem certeza que quer deletar o paciente <b>{{ currentPatient.name }}</b>?</span>
         </div>
         <template #footer>
-            <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
-            <Button label="Sim" icon="pi pi-check" severity="danger" @click="executeDelete" />
+            <Button label="Nao" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Sim" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
-
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';                
+import { computed, defineComponent, h, onMounted, ref } from 'vue';
+import type { PropType } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
@@ -294,12 +176,15 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
-import ContextMenu from 'primevue/contextmenu';
+import Toast from 'primevue/toast';
+import { useToast } from 'primevue/usetoast';
 import AppLayout from '../components/AppLayout.vue';
+import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
+import type { ApiPatient } from '../../infrastructure/services/PatientService';
 
-// --- INTERFACES ---
 interface Patient {
-    id: string;
+    id: number | null;
+    displayId: string;
     status: string;
     name: string;
     birthDate: string;
@@ -308,6 +193,7 @@ interface Patient {
     responsibleName: string;
     cpf: string;
     address: string;
+    addressNumber: string;
     zipCode: string;
     homePhone: string;
     mobilePhone: string;
@@ -316,116 +202,293 @@ interface Patient {
     email: string;
 }
 
-// --- MOCK DATA ---
-const patientsMock = ref<Patient[]>([
-    { 
-        id: '#0000001', status: 'Ativo', name: 'João Silva Oliveira', cpf: '111.222.333-44', birthDate: '1985-10-15', age: 38, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua das Flores, 123, Centro', zipCode: '89010-000', homePhone: '(47) 3322-1100', mobilePhone: '(47) 99123-4567', profession: 'Engenheiro', workMobilePhone: '(47) 98888-0000', email: 'joao.silva@email.com'
+const PatientFormFields = defineComponent({
+    props: {
+        patient: {
+            type: Object as PropType<Patient>,
+            required: true
+        },
+        submitted: {
+            type: Boolean,
+            required: true
+        },
+        genders: {
+            type: Array as PropType<string[]>,
+            required: true
+        },
+        prefix: {
+            type: String,
+            required: true
+        }
     },
-    { 
-        id: '#0000002', status: 'Ativo', name: 'Maria Santos Souza', cpf: '555.666.777-88', birthDate: '1992-05-20', age: 31, gender: 'Feminino', responsibleName: '', 
-        address: 'Av. Paulista, 1500, Bela Vista', zipCode: '01310-100', homePhone: '', mobilePhone: '(11) 99999-1111', profession: 'Arquiteta', workMobilePhone: '', email: 'maria.arq@email.com'
-    },
-    { 
-        id: '#0000003', status: 'Inativo', name: 'Pedro Almeida', cpf: '999.888.777-66', birthDate: '2012-08-10', age: 11, gender: 'Masculino', responsibleName: 'Carlos Almeida', 
-        address: 'Rua XV de Novembro, 800', zipCode: '89010-120', homePhone: '(47) 3333-2222', mobilePhone: '(47) 99999-3333', profession: 'Estudante', workMobilePhone: '', email: 'carlos.almeida@email.com'
-    },
-    { 
-        id: '#0000004', status: 'Ativo', name: 'Ana Costa', cpf: '123.456.789-00', birthDate: '1970-12-01', age: 53, gender: 'Feminino', responsibleName: '', 
-        address: 'Rua Sete de Setembro, 50', zipCode: '89010-200', homePhone: '(47) 3222-5555', mobilePhone: '(47) 98888-4444', profession: 'Professora', workMobilePhone: '(47) 97777-1111', email: 'ana.costa@email.com'
-    },
-    { 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    },
-    { 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    },
-    { 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    },
-    { 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    setup(props) {
+        const required = computed(() => ({
+            name: props.submitted && !props.patient.name,
+            cpf: props.submitted && !props.patient.cpf,
+            birthDate: props.submitted && !props.patient.birthDate,
+            gender: props.submitted && !props.patient.gender,
+            responsibleName: props.submitted && !props.patient.responsibleName,
+            address: props.submitted && !props.patient.address,
+            addressNumber: props.submitted && !props.patient.addressNumber,
+            email: props.submitted && !props.patient.email
+        }));
+
+        const field = (id: string, label: string, child: ReturnType<typeof h>, error?: string) => h('div', { class: 'col-span-12 md:col-span-4' }, [
+            h('label', { for: `${props.prefix}-${id}`, class: 'block font-bold mb-2' }, label),
+            child,
+            error ? h('small', { class: 'text-red-500' }, error) : null
+        ]);
+
+        return () => [
+            h('div', { class: 'col-span-12 md:col-span-8' }, [
+                h('label', { for: `${props.prefix}-name`, class: 'block font-bold mb-2' }, 'Nome Completo'),
+                h(InputText, {
+                    id: `${props.prefix}-name`,
+                    modelValue: props.patient.name,
+                    'onUpdate:modelValue': (value: string) => props.patient.name = value,
+                    invalid: required.value.name,
+                    autofocus: true,
+                    class: 'w-full'
+                }),
+                required.value.name ? h('small', { class: 'text-red-500' }, 'O nome e obrigatorio.') : null
+            ]),
+            field('cpf', 'CPF', h(InputText, {
+                id: `${props.prefix}-cpf`,
+                modelValue: props.patient.cpf,
+                'onUpdate:modelValue': (value: string) => props.patient.cpf = value,
+                placeholder: '000.000.000-00',
+                invalid: required.value.cpf,
+                class: 'w-full'
+            }), required.value.cpf ? 'O CPF e obrigatorio.' : ''),
+            field('birth', 'Data de Nascimento', h(InputText, {
+                id: `${props.prefix}-birth`,
+                type: 'date',
+                modelValue: props.patient.birthDate,
+                'onUpdate:modelValue': (value: string) => props.patient.birthDate = value,
+                invalid: required.value.birthDate,
+                class: 'w-full'
+            }), required.value.birthDate ? 'A data de nascimento e obrigatoria.' : ''),
+            field('gender', 'Sexo', h(Select, {
+                id: `${props.prefix}-gender`,
+                modelValue: props.patient.gender,
+                'onUpdate:modelValue': (value: string) => props.patient.gender = value,
+                options: props.genders,
+                placeholder: 'Selecione',
+                invalid: required.value.gender,
+                class: 'w-full'
+            }), required.value.gender ? 'O sexo e obrigatorio.' : ''),
+            h('div', { class: 'col-span-12' }, [
+                h('label', { for: `${props.prefix}-responsible`, class: 'block font-bold mb-2' }, 'Nome do Responsavel'),
+                h(InputText, {
+                    id: `${props.prefix}-responsible`,
+                    modelValue: props.patient.responsibleName,
+                    'onUpdate:modelValue': (value: string) => props.patient.responsibleName = value,
+                    invalid: required.value.responsibleName,
+                    class: 'w-full'
+                }),
+                required.value.responsibleName ? h('small', { class: 'text-red-500' }, 'O responsavel e obrigatorio para o cadastro no backend.') : null
+            ]),
+            field('zip', 'CEP', h(InputText, {
+                id: `${props.prefix}-zip`,
+                modelValue: props.patient.zipCode,
+                'onUpdate:modelValue': (value: string) => props.patient.zipCode = value,
+                placeholder: '00000-000',
+                class: 'w-full'
+            })),
+            h('div', { class: 'col-span-12 md:col-span-6' }, [
+                h('label', { for: `${props.prefix}-address`, class: 'block font-bold mb-2' }, 'Endereco Completo'),
+                h(InputText, {
+                    id: `${props.prefix}-address`,
+                    modelValue: props.patient.address,
+                    'onUpdate:modelValue': (value: string) => props.patient.address = value,
+                    invalid: required.value.address,
+                    class: 'w-full'
+                }),
+                required.value.address ? h('small', { class: 'text-red-500' }, 'O endereco e obrigatorio.') : null
+            ]),
+            field('address-number', 'Numero', h(InputText, {
+                id: `${props.prefix}-address-number`,
+                modelValue: props.patient.addressNumber,
+                'onUpdate:modelValue': (value: string) => props.patient.addressNumber = value,
+                invalid: required.value.addressNumber,
+                class: 'w-full'
+            }), required.value.addressNumber ? 'O numero e obrigatorio.' : ''),
+            field('home-phone', 'Telefone Residencial', h(InputText, {
+                id: `${props.prefix}-home-phone`,
+                modelValue: props.patient.homePhone,
+                'onUpdate:modelValue': (value: string) => props.patient.homePhone = value,
+                placeholder: '(00) 0000-0000',
+                class: 'w-full'
+            })),
+            field('mobile-phone', 'Celular Pessoal', h(InputText, {
+                id: `${props.prefix}-mobile-phone`,
+                modelValue: props.patient.mobilePhone,
+                'onUpdate:modelValue': (value: string) => props.patient.mobilePhone = value,
+                placeholder: '(00) 90000-0000',
+                class: 'w-full'
+            })),
+            field('work-phone', 'Celular Comercial', h(InputText, {
+                id: `${props.prefix}-work-phone`,
+                modelValue: props.patient.workMobilePhone,
+                'onUpdate:modelValue': (value: string) => props.patient.workMobilePhone = value,
+                placeholder: '(00) 90000-0000',
+                class: 'w-full'
+            })),
+            h('div', { class: 'col-span-12 md:col-span-6' }, [
+                h('label', { for: `${props.prefix}-email`, class: 'block font-bold mb-2' }, 'E-mail'),
+                h(InputText, {
+                    id: `${props.prefix}-email`,
+                    type: 'email',
+                    modelValue: props.patient.email,
+                    'onUpdate:modelValue': (value: string) => props.patient.email = value,
+                    placeholder: 'paciente@exemplo.com',
+                    invalid: required.value.email,
+                    class: 'w-full'
+                }),
+                required.value.email ? h('small', { class: 'text-red-500' }, 'O e-mail e obrigatorio.') : null
+            ]),
+            h('div', { class: 'col-span-12 md:col-span-6' }, [
+                h('label', { for: `${props.prefix}-profession`, class: 'block font-bold mb-2' }, 'Profissao'),
+                h(InputText, {
+                    id: `${props.prefix}-profession`,
+                    modelValue: props.patient.profession,
+                    'onUpdate:modelValue': (value: string) => props.patient.profession = value,
+                    class: 'w-full'
+                })
+            ])
+        ];
     }
-    ,{ 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    }
-    ,{ 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    }
-    ,{ 
-        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
-        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
-    }
-]);
+});
 
 const genders = ref(['Masculino', 'Feminino', 'Outro']);
-
-// --- TABLE STATES AND FILTERS ---
-const selectedPatient = ref();
-const contextMenuSelection = ref();
+const toast = useToast();
+const patients = ref<Patient[]>([]);
+const loading = ref(false);
+const saving = ref(false);
+const selectedPatient = ref<Patient | null>(null);
 const metaKey = ref(true);
+const addDialogVisible = ref(false);
+const editDialogVisible = ref(false);
+const deleteDialogVisible = ref(false);
+const submitted = ref(false);
+const currentPatient = ref<Patient>(getEmptyPatient());
 
 const patientFilters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     status: { value: 'Ativo', matchMode: FilterMatchMode.EQUALS },
-    id: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    displayId: { value: null, matchMode: FilterMatchMode.CONTAINS },
     name: { value: null, matchMode: FilterMatchMode.CONTAINS },
     cpf: { value: null, matchMode: FilterMatchMode.CONTAINS },
     mobilePhone: { value: null, matchMode: FilterMatchMode.CONTAINS }
 });
 
-// --- CONTEXT MENU LOGIC (RIGHT-CLICK) ---
-const cm = ref();
-const menuItems = ref([
-    { 
-        label: 'Reativar paciente', 
-        icon: 'pi pi-refresh',
-        command: () => reactivatePatient() 
-    },
-    { 
-        label: 'Excluir permanentemente',
-        icon: 'pi pi-trash',
-        class: 'text-[var(--p-primary-1010)]'
-    }
-]);
+function getEmptyPatient(): Patient {
+    return {
+        id: null,
+        displayId: '',
+        status: 'Ativo',
+        name: '',
+        birthDate: '',
+        age: null,
+        gender: '',
+        responsibleName: '',
+        cpf: '',
+        address: '',
+        addressNumber: '',
+        zipCode: '',
+        homePhone: '',
+        mobilePhone: '',
+        profession: '',
+        workMobilePhone: '',
+        email: ''
+    };
+}
 
-const onRowContextMenu = (event: any) => {
-    if (contextMenuSelection.value && contextMenuSelection.value.status === 'Inativo') {
-        cm.value.show(event.originalEvent);
+const formatDisplayId = (id?: number | null) => id ? `#${id.toString().padStart(7, '0')}` : '';
+const onlyDigits = (value: string) => value.replace(/\D/g, '');
+
+const calculateAge = (birthDate: string) => {
+    if (!birthDate) return 0;
+
+    const today = new Date();
+    const birth = new Date(`${birthDate}T00:00:00`);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age -= 1;
     }
+
+    return age;
 };
 
-const reactivatePatient = () => {
-    if (contextMenuSelection.value) {
-        const index = patientsMock.value.findIndex(p => p.id === contextMenuSelection.value.id);
-        const itemToReactivate = patientsMock.value[index];
-        if (itemToReactivate) {
-            itemToReactivate.status = 'Ativo';
-        }
-        contextMenuSelection.value = null; 
-    }
-};
-
-// --- DIALOG STATES ---
-const addDialogVisible = ref(false);
-const editDialogVisible = ref(false);
-const deleteDialogVisible = ref(false);
-const submitted = ref(false);
-
-const getEmptyPatient = (): Patient => ({
-    id: '', status: 'Ativo', name: '', birthDate: '', age: null, gender: '', responsibleName: '', 
-    cpf: '', address: '', zipCode: '', homePhone: '', mobilePhone: '', profession: '', workMobilePhone: '', email: ''
+const toViewPatient = (patient: ApiPatient, fallback?: Patient): Patient => ({
+    id: patient.id ?? fallback?.id ?? null,
+    displayId: formatDisplayId(patient.id ?? fallback?.id),
+    status: 'Ativo',
+    name: patient.name ?? fallback?.name ?? '',
+    birthDate: patient.birthday ?? fallback?.birthDate ?? '',
+    age: patient.age ?? fallback?.age ?? null,
+    gender: patient.sex ?? fallback?.gender ?? '',
+    responsibleName: patient.responsible ?? fallback?.responsibleName ?? '',
+    cpf: patient.document ?? fallback?.cpf ?? '',
+    address: patient.address ?? fallback?.address ?? '',
+    addressNumber: patient.addressesNumber ?? fallback?.addressNumber ?? '',
+    zipCode: fallback?.zipCode ?? '',
+    homePhone: patient.homePhoneNumber ?? fallback?.homePhone ?? '',
+    mobilePhone: patient.phoneNumber ?? fallback?.mobilePhone ?? '',
+    profession: patient.occupation ?? fallback?.profession ?? '',
+    workMobilePhone: patient.commercialPhoneNumber ?? fallback?.workMobilePhone ?? '',
+    email: patient.email ?? fallback?.email ?? ''
 });
 
-const currentPatient = ref<Patient>(getEmptyPatient());
+const toApiPatient = (patient: Patient): ApiPatient => ({
+    id: patient.id,
+    name: patient.name,
+    email: patient.email,
+    birthday: patient.birthDate,
+    age: patient.age ?? calculateAge(patient.birthDate),
+    sex: patient.gender,
+    responsible: patient.responsibleName,
+    document: onlyDigits(patient.cpf),
+    address: patient.address,
+    addressesNumber: patient.addressNumber,
+    homePhoneNumber: patient.homePhone || null,
+    commercialPhoneNumber: patient.workMobilePhone || null,
+    phoneNumber: patient.mobilePhone || null,
+    occupation: patient.profession || null
+});
 
-// --- ADD PATIENT LOGIC ---
+const isPatientValid = (patient: Patient) => {
+    return !!(
+        patient.name?.trim() &&
+        patient.email?.trim() &&
+        patient.birthDate &&
+        patient.gender &&
+        patient.responsibleName?.trim() &&
+        patient.cpf?.trim() &&
+        patient.address?.trim() &&
+        patient.addressNumber?.trim()
+    );
+};
+
+const showError = (detail: string) => {
+    toast.add({ severity: 'error', summary: 'Erro', detail, life: 5000 });
+};
+
+const loadPatients = async () => {
+    loading.value = true;
+
+    try {
+        const data = await PatientService.list();
+        patients.value = data.map(patient => toViewPatient(patient));
+    } catch (error: unknown) {
+        showError(getPatientServiceErrorMessage(error));
+    } finally {
+        loading.value = false;
+    }
+};
+
 const openAddDialog = () => {
     currentPatient.value = getEmptyPatient();
     submitted.value = false;
@@ -437,21 +500,28 @@ const closeAddDialog = () => {
     submitted.value = false;
 };
 
-const saveAddedPatient = () => {
+const saveAddedPatient = async () => {
     submitted.value = true;
 
-    if (currentPatient.value.name?.trim() && currentPatient.value.cpf?.trim()) {
-        currentPatient.value.id = '#' + Math.floor(Math.random() * 1000000).toString().padStart(7, '0');
-        patientsMock.value.unshift(currentPatient.value);
-        
+    if (!isPatientValid(currentPatient.value)) return;
+
+    saving.value = true;
+
+    try {
+        const savedPatient = await PatientService.register(toApiPatient(currentPatient.value));
+        patients.value.unshift(toViewPatient(savedPatient, currentPatient.value));
         addDialogVisible.value = false;
         currentPatient.value = getEmptyPatient();
+        toast.add({ severity: 'success', summary: 'Paciente salvo', detail: 'Cadastro realizado com sucesso.', life: 3000 });
+    } catch (error: unknown) {
+        showError(getPatientServiceErrorMessage(error));
+    } finally {
+        saving.value = false;
     }
 };
 
-// --- EDIT PATIENT LOGIC ---
 const openEditDialog = (patient: Patient) => {
-    currentPatient.value = { ...patient }; 
+    currentPatient.value = { ...patient };
     submitted.value = false;
     editDialogVisible.value = true;
 };
@@ -461,41 +531,57 @@ const closeEditDialog = () => {
     submitted.value = false;
 };
 
-const saveEditedPatient = () => {
+const saveEditedPatient = async () => {
     submitted.value = true;
 
-    if (currentPatient.value.name?.trim() && currentPatient.value.cpf?.trim()) {
-        const index = patientsMock.value.findIndex(p => p.id === currentPatient.value.id);
+    if (!isPatientValid(currentPatient.value)) return;
+
+    saving.value = true;
+
+    try {
+        const savedPatient = await PatientService.edit(toApiPatient(currentPatient.value));
+        const index = patients.value.findIndex(p => p.id === savedPatient.id);
+
         if (index !== -1) {
-            patientsMock.value[index] = currentPatient.value;
+            patients.value[index] = toViewPatient(savedPatient, currentPatient.value);
         }
 
         editDialogVisible.value = false;
         currentPatient.value = getEmptyPatient();
+        toast.add({ severity: 'success', summary: 'Paciente atualizado', detail: 'Alteracoes salvas com sucesso.', life: 3000 });
+    } catch (error: unknown) {
+        showError(getPatientServiceErrorMessage(error));
+    } finally {
+        saving.value = false;
     }
 };
 
-// --- DELETE PATIENT LOGIC ---
 const confirmDeletePatient = (patient: Patient) => {
-    currentPatient.value = { ...patient }; 
+    currentPatient.value = { ...patient };
     deleteDialogVisible.value = true;
 };
 
-const executeDelete = () => {
-    const index = patientsMock.value.findIndex(p => p.id === currentPatient.value.id);
-    const itemToDeactivate = patientsMock.value[index];
+const executeDelete = async () => {
+    if (!currentPatient.value.id) return;
 
-    if (itemToDeactivate) {
-        itemToDeactivate.status = 'Inativo';
+    saving.value = true;
+
+    try {
+        await PatientService.delete(currentPatient.value.id);
+        patients.value = patients.value.filter(patient => patient.id !== currentPatient.value.id);
+        deleteDialogVisible.value = false;
+        currentPatient.value = getEmptyPatient();
+        toast.add({ severity: 'success', summary: 'Paciente excluido', detail: 'Registro removido com sucesso.', life: 3000 });
+    } catch (error: unknown) {
+        showError(getPatientServiceErrorMessage(error));
+    } finally {
+        saving.value = false;
     }
-    
-    deleteDialogVisible.value = false;
-    currentPatient.value = getEmptyPatient();
 };
 
-// --- MISC FUNCTIONS ---
 const rowClass = (data: Patient) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
-</script>
 
+onMounted(loadPatients);
+</script>

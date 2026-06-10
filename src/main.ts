@@ -49,5 +49,5 @@ app.use(PrimeVue, {
         }
     }
 });
-app.mount('#app');
 app.use(ToastService);
+app.mount('#app');

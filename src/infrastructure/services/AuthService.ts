@@ -45,5 +45,11 @@ export const AuthService = {
 
   isAuthenticated() {
     return !!localStorage.getItem(AUTH_STORAGE_KEY);
-  }
+  },
+  
+  getUser() {
+  const data = localStorage.getItem(AUTH_STORAGE_KEY);
+  return data ? JSON.parse(data) : null;
+}
+
 };

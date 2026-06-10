@@ -7,28 +7,7 @@
         <p class="text-[var(--p-surface-500)] mt-1 font-medium">Lista de atendimentos</p>
       </div>
 
-      <Transition name="fade">
-        <div 
-          v-if="currentAlert" 
-          class="bg-[var(--p-surface-0)] border-l-4 border-[var(--p-primary-500)] p-4 rounded-r-xl shadow-sm flex items-center justify-between"
-        >
-          <div class="flex items-center">
-            <i class="pi pi-bell text-2xl mr-4 text-[var(--p-primary-500)] animate-bounce"></i>
-            <div>
-              <p class="text-sm font-bold text-[var(--p-primary-600)] uppercase tracking-wider">
-                Notificação em tempo real
-              </p>
-              <p class="text-base text-[var(--p-surface-600)] mt-0.5 font-medium">
-                {{ currentAlert }}
-              </p>
-            </div>
-          </div>
-          <span class="flex h-3 w-3 relative mr-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--p-primary-400)] opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-3 w-3 bg-[var(--p-primary-500)]"></span>
-          </span>
-        </div>
-      </Transition>
+      <Toast />
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         
@@ -111,6 +90,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
+import Toast from 'primevue/toast' 
+import { useToast } from 'primevue/usetoast' 
+import { AuthService } from '../../infrastructure/services/AuthService' 
 
 interface Attendance {
   id: number
@@ -136,9 +118,9 @@ const syncTokenCookie = () => {
   document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax`
 }
 
-// ==========================================
-// 1. WebSocket - Comunicação em Tempo Real
-// ==========================================
+const toast = useToast()
+
+// WebSocket - Comunicação em Tempo Real
 const connectWebSocket = () => {
   ws = new WebSocket(WS_URL)
 
@@ -148,7 +130,24 @@ const connectWebSocket = () => {
 
   ws.onmessage = (event) => {
     console.log("Mensagem recebida do servidor:", event.data)
-    currentAlert.value = event.data 
+    
+    try {
+      // Faz o parse da nova estrutura em JSON vinda do backend
+      const payload = JSON.parse(event.data)
+      const currentUser = AuthService.getUser()
+
+      // Compara o emissor da mensagem com o usuário logado na sessão atual
+      if (payload.senderEmail !== currentUser?.email) {
+        toast.add({ 
+          severity: 'info', 
+          summary: 'Novo Atendimento', 
+          detail: payload.message, 
+          life: 5000 
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao processar mensagem do WebSocket. O formato esperado é JSON.", error)
+    }
     fetchQueue() 
   }
 
@@ -161,9 +160,7 @@ const connectWebSocket = () => {
   }
 }
 
-// ==========================================
-// 2. API REST (POST) - Comunicação Síncrona
-// ==========================================
+//  API REST (POST) - Comunicação Síncrona
 const registerPatient = async () => {
   if (!newPatientName.value) return
 
@@ -192,9 +189,7 @@ const registerPatient = async () => {
   }
 }
 
-// ==========================================
-// 3. API REST (GET) - Consulta Síncrona
-// ==========================================
+// API REST (GET) - Consulta Síncrona
 const fetchQueue = async () => {
   try {
     syncTokenCookie()
