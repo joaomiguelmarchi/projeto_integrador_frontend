@@ -1,48 +1,49 @@
 import { api } from '../http/api';
 
-const TOKEN_STORAGE_KEY = 'auth_token';
-const TOKEN_COOKIE_NAME = 'token';
+const AUTH_STORAGE_KEY = 'usuario_logado';
 
-const getTokenFromResponse = (data: any): string | null => {
-  return data?.token || data?.accessToken || data?.data?.token || null;
-};
+const getErrorMessage = (error: any) => {
+  const data = error.response?.data;
 
-const setTokenCookie = (token: string) => {
-  document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  return data?.error?.message
+    || data?.error
+    || data?.message
+    || (error.response ? 'Não foi possível realizar o login com os dados informados.' : 'Não foi possível conectar ao servidor.');
 };
 
 export const AuthService = {
   async login(email: string, senha: string) {
     try {
       const response = await api.post('/user/login', {
-        email: email,      
-        password: senha     
+        email,
+        password: senha
       });
 
-      const token = getTokenFromResponse(response.data);
-
-      // if (token) {
-      //   localStorage.setItem(TOKEN_STORAGE_KEY, token);
-      //   setTokenCookie(token);
-      // }
-
-      return { 
+      return {
         sucesso: true,
-        token
+        data: response.data
       };
-
     } catch (error: any) {
-
-      console.error('=== [ERRO] Falha na Requisição ===', error);
-      console.log('Detalhes do Erro (Data):', error.response?.data);
-      console.log('Status HTTP:', error.response?.status);
-
-      const mensagemErro = error.response?.data?.error || 'Erro inesperado!';
-      
-      return { 
-        sucesso: false, 
-        mensagem: mensagemErro 
+      return {
+        sucesso: false,
+        mensagem: getErrorMessage(error)
       };
     }
+  },
+
+  saveSession(data?: unknown) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data ?? true));
+  },
+
+  logout() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  },
+
+  isAuthenticated() {
+    return !!localStorage.getItem(AUTH_STORAGE_KEY);
   }
 };

@@ -6,6 +6,7 @@ import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
 import AttendanceView from '../views/AttendanceView.vue'
+import { AuthService } from '../../infrastructure/services/AuthService'
 
 const routes = [
   {
@@ -26,17 +27,19 @@ const routes = [
     path: '/inicio',
     name: 'inicio',
     component: HomeView,
-    //meta: { requiresAuth: true } 
+    meta: { requiresAuth: false } 
   },
   {
     path: '/procedimentos',
     name: 'procedimentos',
-    component: ProceduresView
+    component: ProceduresView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/cadastroPaciente',
     name: 'cadastroPaciente',
-    component: PatientRegistrationView
+    component: PatientRegistrationView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/orcamento',
@@ -56,10 +59,11 @@ const router = createRouter({
   routes
 })
 
+
 router.beforeEach((to, _from, next) => {
   
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const isAuthenticated = localStorage.getItem('usuario_logado')   // Substituir 'usuario_logado' pela chave AuthService
+  const isAuthenticated = AuthService.isAuthenticated()
 
   if (requiresAuth && !isAuthenticated) {
     next('/login')
@@ -71,3 +75,4 @@ router.beforeEach((to, _from, next) => {
 })
 
 export default router
+

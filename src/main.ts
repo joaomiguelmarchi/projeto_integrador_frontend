@@ -6,6 +6,7 @@ import Aura from '@primevue/themes/aura'
 import { definePreset } from '@primevue/themes';
 import './assets/style.css';
 import 'primeicons/primeicons.css';
+import ToastService from 'primevue/toastservice';
 
 const SmileHubPreset = definePreset(Aura, {
     semantic: {
@@ -49,3 +50,4 @@ app.use(PrimeVue, {
     }
 });
 app.mount('#app');
+app.use(ToastService);

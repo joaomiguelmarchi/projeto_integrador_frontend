@@ -1,55 +1,6 @@
 <template>
-    <div class="bg-[var(--p-surface-100)] h-screen w-full flex overflow-hidden font-sans text-[var(--p-surface-800)]">
-        
-        <aside class="w-64 bg-[var(--p-surface-100)] border-r border-[var(--p-surface-200)] flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.04)]">
-            <div class="h-[72px] flex items-center px-6 border-b border-transparent gap-3" >
-                <Image :src="logoUrl" alt="Logo Odontohub" width="30" />
-                <span class="text-xl font-extrabold text-[var(--p-primary-600)] tracking-tight">SMILEHUB</span>
-            </div>
-            
-            <nav class="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
-                <button @click="accessHome()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-home text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Início</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--p-surface-0)] text-[var(--p-primary-600)] transition-all text-left cursor-pointer shadow-sm">
-                    <i class="pi pi-users text-[var(--p-primary-600)]"></i>
-                    <span class="font-semibold text-[15px]">Cadastro de Paciente</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-folder text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Conta Paciente</span>
-                </button>
-                <button @click="accessQuotation()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-dollar text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Orçamento</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-calendar text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Agenda</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-receipt text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Faturamento</span>
-                </button>
-                <button @click="accessProcedures()" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group">
-                    <i class="pi pi-list text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Procedimentos</span>
-                </button>
-                <button class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[var(--p-surface-500)] hover:bg-[var(--p-surface-0)] hover:text-[var(--p-surface-800)] transition-all text-left cursor-pointer group mt-auto">
-                    <i class="pi pi-cog text-[var(--p-surface-400)] group-hover:text-[var(--p-surface-600)] transition-colors"></i>
-                    <span class="font-medium text-[15px]">Configurações</span>
-                </button>
-            </nav>
-        </aside>
+    <AppLayout title="Pacientes">
 
-        <main class="flex-1 flex flex-col overflow-hidden"> 
-            
-            <header class="h-[72px] bg-[var(--p-surface-100)] flex items-center justify-between px-8 shrink-0">
-                <h1 class="text-[22px] font-bold text-[var(--p-surface-600)] m-0 tracking-tight">Pacientes</h1>
-            </header>
-
-            <div class="flex-1 px-8 pb-8 overflow-hidden flex flex-col">
                 <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
                     
                     <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
@@ -83,7 +34,7 @@
                             v-model:contextMenuSelection="contextMenuSelection"
                             @rowContextmenu="onRowContextMenu"
                             :value="patientsMock" 
-                            class="patient-table flex-1 px-4" 
+                            class="app-table flex-1 px-4" 
                             scrollable 
                             scrollHeight="flex"
                             selectionMode="single"
@@ -92,6 +43,11 @@
                             filterDisplay="row"
                             :globalFilterFields="['status', 'id', 'name', 'cpf', 'mobilePhone']"
                             :rowClass="rowClass"
+                            paginator
+                            :rows="10"
+                            :rowsPerPageOptions="[5, 10, 20]"
+                            paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
+                            currentPageReportTemplate="{first} - {last} de {totalRecords}"
                         >   
                             <template #empty> 
                                 <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
@@ -164,9 +120,7 @@
                         </DataTable>
                     </div>
                 </div>
-            </div>
-        </main>
-    </div>
+    </AppLayout>
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
@@ -341,9 +295,7 @@ import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import ContextMenu from 'primevue/contextmenu';
-import { useRouter } from 'vue-router';
-import logoUrl from '../../assets/LogoAzul.png';
-import Image from 'primevue/image';
+import AppLayout from '../components/AppLayout.vue';
 
 // --- INTERFACES ---
 interface Patient {
@@ -383,6 +335,30 @@ const patientsMock = ref<Patient[]>([
         address: 'Rua Sete de Setembro, 50', zipCode: '89010-200', homePhone: '(47) 3222-5555', mobilePhone: '(47) 98888-4444', profession: 'Professora', workMobilePhone: '(47) 97777-1111', email: 'ana.costa@email.com'
     },
     { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    },
+    { 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
+        id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
+        address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
+    }
+    ,{ 
         id: '#0000005', status: 'Inativo', name: 'Lucas Ferreira', cpf: '321.654.987-11', birthDate: '1998-03-25', age: 26, gender: 'Masculino', responsibleName: '', 
         address: 'Rua Humberto de Campos, 900', zipCode: '89036-050', homePhone: '', mobilePhone: '(47) 99111-2222', profession: 'Desenvolvedor', workMobilePhone: '', email: 'lucas.dev@email.com'
     }
@@ -521,47 +497,5 @@ const executeDelete = () => {
 const rowClass = (data: Patient) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
-
-const router = useRouter();
-const accessHome = () => {
-  router.push('/inicio');
-};
-const accessProcedures = () => {
-  router.push('/procedimentos');
-};
-const accessQuotation = () => {
-  router.push('/orcamento');
-};
 </script>
 
-<style scoped>
-/* Estilos alinhados com o modelo visual da ProceduresView */
-:deep(.patient-table .p-datatable-thead > tr > th) {
-    background-color: transparent;
-    color: var(--p-surface-600);
-    border-bottom: 1px solid var(--p-surface-200); 
-    padding: 1rem 0.75rem;
-}
-
-:deep(.patient-table .p-datatable-thead > tr:nth-child(2) > th) {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    background-color: transparent;
-    border-bottom: 1px solid var(--p-surface-200);
-}
-
-:deep(.patient-table .p-datatable-thead > tr > th:first-child),
-:deep(.patient-table .p-datatable-tbody > tr > td:first-child) { 
-    padding-left: 0; 
-}
-
-:deep(.patient-table .p-datatable-thead > tr > th:last-child),
-:deep(.patient-table .p-datatable-tbody > tr > td:last-child) { 
-    padding-right: 0; 
-}
-
-:deep(.patient-table .p-datatable-tbody > tr > td) {
-    padding: 1rem 0.75rem;
-    border-bottom: 1px solid var(--p-surface-200); 
-}
-</style>
