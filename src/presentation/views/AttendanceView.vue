@@ -1,41 +1,63 @@
 <template>
   <div class="min-h-screen bg-[var(--p-surface-100)] py-10 px-4 sm:px-6 lg:px-8 font-sans text-[var(--p-surface-800)]">
     <div class="max-w-4xl mx-auto space-y-6">
-      
       <div class="bg-[var(--p-surface-0)] shadow-sm rounded-xl p-6 text-center border-t-4 border-[var(--p-primary-500)]">
         <h1 class="text-3xl font-extrabold text-[var(--p-primary-600)] tracking-tight">SMILEHUB</h1>
         <p class="text-[var(--p-surface-500)] mt-1 font-medium">Lista de atendimentos</p>
       </div>
 
-      <Toast />
+      <Toast>
+        <template #message="slotProps">
+          <div class="flex flex-col gap-3 w-full">
+            <div>
+              <span class="font-bold text-sm text-[var(--p-surface-800)]">{{ slotProps.message.summary }}</span>
+              <div class="text-sm text-[var(--p-surface-600)] mt-1">{{ slotProps.message.detail }}</div>
+              <div v-if="slotProps.message.patientId" class="text-xs font-semibold text-[var(--p-surface-500)] mt-1">
+                ID do paciente: {{ slotProps.message.patientId }}
+              </div>
+            </div>
+            <Button
+              v-if="slotProps.message.patientId"
+              label="Ver"
+              icon="pi pi-eye"
+              size="small"
+              class="self-start !rounded-lg"
+              @click.stop="openPatientDialogById(slotProps.message.patientId)"
+            />
+          </div>
+        </template>
+      </Toast>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
         <section class="bg-[var(--p-surface-0)] shadow-sm rounded-xl p-6 border border-[var(--p-surface-200)]">
           <div class="flex items-center mb-5 gap-3">
             <i class="pi pi-user-plus text-xl text-[var(--p-primary-600)]"></i>
             <h2 class="text-lg font-bold text-[var(--p-surface-600)] m-0">Registrar Chegada</h2>
           </div>
-          
+
           <form @submit.prevent="registerPatient" class="space-y-4">
             <div class="flex flex-col gap-2">
-              <label for="patientName" class="font-bold text-[var(--p-surface-800)] text-sm">
-                Nome do Paciente
+              <label for="patientId" class="font-bold text-[var(--p-surface-800)] text-sm">
+                Paciente
               </label>
-              <InputText 
-                id="patientName"
-                v-model="newPatientName" 
-                type="text" 
-                placeholder="Ex: João da Silva" 
-                required 
-                class="w-full py-2 px-3 h-10 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-lg focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
+              <Select
+                id="patientId"
+                v-model="selectedPatientId"
+                :options="patients"
+                option-label="name"
+                option-value="id"
+                placeholder="Selecione um paciente"
+                filter
+                :loading="isLoadingPatients"
+                :disabled="isLoadingPatients"
+                class="w-full"
               />
             </div>
-            <Button 
-              type="submit" 
-              :label="isLoading ? 'Enviando...' : 'Adicionar à Fila'" 
+            <Button
+              type="submit"
+              :label="isLoading ? 'Enviando...' : 'Adicionar a Fila'"
               :icon="isLoading ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
-              :disabled="isLoading"
+              :disabled="isLoading || !selectedPatientId || isLoadingPatients"
               class="w-full !bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !font-semibold !text-[var(--p-surface-0)] transition-all h-10 flex items-center justify-center !rounded-lg shadow-md"
             />
           </form>
@@ -47,26 +69,28 @@
               <i class="pi pi-users text-xl text-[var(--p-primary-600)]"></i>
               <h2 class="text-lg font-bold text-[var(--p-surface-600)] m-0">Fila de Espera</h2>
             </div>
-            <Button 
-              icon="pi pi-refresh" 
-              variant="text" 
+            <Button
+              icon="pi pi-refresh"
+              variant="text"
               size="small"
-              @click="fetchQueue" 
+              @click="fetchQueue"
               class="!text-[var(--p-surface-500)] hover:!text-[var(--p-primary-600)] hover:!bg-[var(--p-surface-100)] !w-8 !h-8 !p-0"
               title="Atualizar manualmente (GET)"
             />
           </div>
-          
+
           <div class="flex-1 overflow-y-auto pr-2 rounded-lg">
             <ul v-if="queue.length > 0" class="space-y-2">
-              <li 
-                v-for="(attendance, index) in queue" 
+              <li
+                v-for="(attendance, index) in queue"
                 :key="attendance.id"
                 class="bg-[var(--p-surface-100)] border border-[var(--p-surface-200)] rounded-lg p-3 flex justify-between items-center hover:bg-[var(--p-surface-200)] transition-colors cursor-default"
               >
                 <div class="flex items-center">
                   <span class="text-[var(--p-surface-400)] font-bold mr-3">#{{ index + 1 }}</span>
-                  <span class="text-sm font-semibold text-[var(--p-surface-800)]">{{ attendance.patientName }}</span>
+                  <span class="text-sm font-semibold text-[var(--p-surface-800)]">
+                    {{ attendance.patientName || getPatientName(attendance.patientId) || 'Paciente sem nome' }}
+                  </span>
                 </div>
                 <span class="px-3 py-1 rounded-full inline-flex items-center gap-2 bg-[var(--p-surface-0)] text-[var(--p-surface-600)] border border-[var(--p-surface-300)] text-xs font-bold shadow-sm">
                   <span class="w-2 h-2 rounded-full bg-[var(--p-primary-500)]"></span>
@@ -80,35 +104,104 @@
             </div>
           </div>
         </section>
-
       </div>
+
+      <Dialog
+        v-model:visible="patientDialogVisible"
+        :style="{ width: '520px' }"
+        header="Detalhes do Paciente"
+        :modal="true"
+      >
+        <div v-if="selectedPatient" class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">ID</span>
+            <span>{{ selectedPatient.id }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">Nome</span>
+            <span>{{ selectedPatient.name || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">Email</span>
+            <span>{{ selectedPatient.email || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">Telefone</span>
+            <span>{{ selectedPatient.phoneNumber || selectedPatient.homePhoneNumber || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">Nascimento</span>
+            <span>{{ selectedPatient.birthday || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-[var(--p-surface-500)]">Responsavel</span>
+            <span>{{ selectedPatient.responsible || '-' }}</span>
+          </div>
+          <div class="flex flex-col gap-1 sm:col-span-2">
+            <span class="font-bold text-[var(--p-surface-500)]">Endereco</span>
+            <span>{{ patientAddress }}</span>
+          </div>
+        </div>
+      </Dialog>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import Toast from 'primevue/toast' 
-import { useToast } from 'primevue/usetoast' 
-import { AuthService } from '../../infrastructure/services/AuthService' 
+import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
+import Toast from 'primevue/toast'
+import type { ToastMessageOptions } from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
+import { AuthService } from '../../infrastructure/services/AuthService'
+import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService'
+import type { ApiPatient } from '../../infrastructure/services/PatientService'
 
 interface Attendance {
   id: number
-  patientName: string
+  patientId?: number | null
+  patientName?: string | null
 }
 
-const newPatientName = ref('')
+interface AttendanceNotification extends ToastMessageOptions {
+  patientId?: number
+}
+
+interface WebSocketPayload {
+  senderEmail?: string
+  message?: string
+  patientId?: number
+  patient?: ApiPatient
+}
+
+const selectedPatientId = ref<number | null>(null)
 const isLoading = ref(false)
+const isLoadingPatients = ref(false)
 const queue = ref<Attendance[]>([])
-const currentAlert = ref('')
+const patients = ref<ApiPatient[]>([])
+const selectedPatient = ref<ApiPatient | null>(null)
+const patientDialogVisible = ref(false)
 let ws: WebSocket | null = null
 
 const API_BASE_URL = 'http://localhost:9090/attendance'
 const WS_URL = 'ws://localhost:9090/attendance/ws'
 const TOKEN_STORAGE_KEY = 'auth_token'
 const TOKEN_COOKIE_NAME = 'token'
+
+const toast = useToast()
+
+const patientAddress = computed(() => {
+  if (!selectedPatient.value) return '-'
+
+  const address = [
+    selectedPatient.value.address,
+    selectedPatient.value.addressesNumber
+  ].filter(Boolean).join(', ')
+
+  return address || '-'
+})
 
 const syncTokenCookie = () => {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY)
@@ -118,51 +211,101 @@ const syncTokenCookie = () => {
   document.cookie = `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Lax`
 }
 
-const toast = useToast()
+const showError = (detail: string) => {
+  toast.add({ severity: 'error', summary: 'Erro', detail, life: 5000 })
+}
 
-// WebSocket - Comunicação em Tempo Real
+const getPatientName = (patientId?: number | null) => {
+  if (!patientId) return ''
+  return patients.value.find(patient => patient.id === patientId)?.name ?? ''
+}
+
+const normalizePatientId = (payload: WebSocketPayload) => {
+  return payload.patientId ?? payload.patient?.id ?? null
+}
+
+const getPayloadMessage = (payload: WebSocketPayload, patientId?: number | null) => {
+  return payload.message ?? (patientId ? `Paciente ${patientId} adicionado a fila.` : 'Paciente adicionado a fila.')
+}
+
+const loadPatients = async () => {
+  isLoadingPatients.value = true
+
+  try {
+    patients.value = await PatientService.list()
+  } catch (error) {
+    showError(getPatientServiceErrorMessage(error))
+  } finally {
+    isLoadingPatients.value = false
+  }
+}
+
+const openPatientDialogById = async (patientId: number) => {
+  let patient = patients.value.find(item => item.id === patientId)
+
+  if (!patient) {
+    await loadPatients()
+    patient = patients.value.find(item => item.id === patientId)
+  }
+
+  if (!patient) {
+    showError('Paciente nao encontrado.')
+    return
+  }
+
+  selectedPatient.value = patient
+  patientDialogVisible.value = true
+}
+
 const connectWebSocket = () => {
   ws = new WebSocket(WS_URL)
 
   ws.onopen = () => {
-    console.log("Conectado ao WebSocket do SMILEHUB")
+    console.log('Conectado ao WebSocket do SMILEHUB')
   }
 
   ws.onmessage = (event) => {
-    console.log("Mensagem recebida do servidor:", event.data)
-    
-    try {
-      // Faz o parse da nova estrutura em JSON vinda do backend
-      const payload = JSON.parse(event.data)
-      const currentUser = AuthService.getUser()
+    console.log('Mensagem recebida do servidor:', event.data)
 
-      // Compara o emissor da mensagem com o usuário logado na sessão atual
-      if (payload.senderEmail !== currentUser?.email) {
-        toast.add({ 
-          severity: 'info', 
-          summary: 'Novo Atendimento', 
-          detail: payload.message, 
-          life: 5000 
-        })
-      }
+    try {
+      const payload = JSON.parse(event.data) as WebSocketPayload
+      console.log(payload)
+      const currentUser = AuthService.getUser()
+      const patientId = normalizePatientId(payload)
+      const patientName = payload.patient?.name ?? getPatientName(patientId)
+
+      
+        const message: AttendanceNotification = {
+          severity: 'info',
+          summary: 'Novo Atendimento',
+          detail: `Paciente: ${patientName}.`,
+          life: 10000
+        }
+
+        if (patientId) {
+          message.patientId = patientId
+        }
+
+        toast.add(message)
+    
     } catch (error) {
-      console.error("Erro ao processar mensagem do WebSocket. O formato esperado é JSON.", error)
+      console.error('Erro ao processar mensagem do WebSocket. O formato esperado e JSON.', error)
     }
-    fetchQueue() 
+
+    fetchQueue()
   }
 
   ws.onerror = (error) => {
-    console.error("Erro no WebSocket:", error)
+    console.error('Erro no WebSocket:', error)
   }
 
   ws.onclose = () => {
-    console.log("Conexão WebSocket fechada")
+    console.log('Conexao WebSocket fechada')
   }
 }
 
-//  API REST (POST) - Comunicação Síncrona
 const registerPatient = async () => {
-  if (!newPatientName.value) return
+  if (!selectedPatientId.value) return
 
   isLoading.value = true
   try {
@@ -174,22 +317,23 @@ const registerPatient = async () => {
         'Content-Type': 'application/json'
       },
       credentials: 'include',
-      body: JSON.stringify({ patientName: newPatientName.value })
+      body: JSON.stringify({ patientId: selectedPatientId.value })
     })
 
     if (response.ok) {
-      newPatientName.value = '' 
+      selectedPatientId.value = null
     } else {
       console.error('Falha ao registrar')
+      showError('Falha ao registrar paciente na fila.')
     }
   } catch (error) {
-    console.error("Erro na comunicação com a API REST:", error)
+    console.error('Erro na comunicacao com a API REST:', error)
+    showError('Nao foi possivel conectar com a API de atendimento.')
   } finally {
     isLoading.value = false
   }
 }
 
-// API REST (GET) - Consulta Síncrona
 const fetchQueue = async () => {
   try {
     syncTokenCookie()
@@ -199,15 +343,16 @@ const fetchQueue = async () => {
     })
     if (response.ok) {
       const data = await response.json()
-      queue.value = data.data || data 
+      queue.value = data.data || data
     }
   } catch (error) {
-    console.error("Erro ao buscar a fila de mensagens:", error)
+    console.error('Erro ao buscar a fila de mensagens:', error)
   }
 }
 
 onMounted(() => {
   connectWebSocket()
+  loadPatients()
   fetchQueue()
 })
 
@@ -231,13 +376,16 @@ onUnmounted(() => {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--p-surface-300);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--p-surface-400);
 }
