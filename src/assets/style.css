@@ -44,3 +44,149 @@ body {
     padding: 1rem 0.75rem;
     border-bottom: 1px solid var(--p-surface-200);
 }
+
+.app-dialog {
+    border-radius: 1rem;
+    overflow: hidden;
+    width: min(100%, calc(100vw - 2rem));
+}
+
+.app-dialog .p-dialog-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--p-surface-200);
+}
+
+.app-dialog .p-dialog-title {
+    color: var(--p-surface-700);
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.app-dialog .p-dialog-content {
+    padding: 0;
+}
+
+.app-dialog .p-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--p-surface-200);
+}
+
+.app-dialog-body {
+    padding: 1.5rem;
+}
+
+.app-dialog-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.app-form-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.app-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.app-field-label {
+    color: var(--p-surface-700);
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.app-required-mark {
+    color: var(--p-primary-1010);
+    margin-left: 0.25rem;
+}
+
+.app-field-error {
+    color: var(--p-primary-1010);
+    font-size: 0.8125rem;
+}
+
+.app-confirm-body {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+}
+
+.pi.app-confirm-icon {
+    align-items: center;
+    background-color: color-mix(in srgb, var(--p-primary-1010) 12%, transparent);
+    border-radius: 999px;
+    color: var(--p-primary-1010);
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-size: 1.5rem;
+    height: 3rem;
+    justify-content: center;
+    width: 3rem;
+}
+
+.pi.app-confirm-icon::before {
+    line-height: 1;
+}
+
+.quotation-procedures-section {
+    background-color: var(--p-surface-100);
+    border: 1px solid var(--p-surface-300);
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.quotation-procedures-header {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.quotation-procedures-empty {
+    align-items: center;
+    background-color: color-mix(in srgb, var(--p-surface-0) 72%, transparent);
+    border: 1px dashed var(--p-surface-300);
+    border-radius: 0.5rem;
+    color: var(--p-surface-500);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    justify-content: center;
+    min-height: 7rem;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+@media (max-width: 640px) {
+    .app-dialog .p-dialog-header,
+    .app-dialog .p-dialog-footer,
+    .app-dialog-body,
+    .app-confirm-body {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .app-dialog .p-dialog-footer {
+        flex-direction: column-reverse;
+    }
+
+    .app-dialog .p-dialog-footer .p-button {
+        width: 100%;
+    }
+
+    .quotation-procedures-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

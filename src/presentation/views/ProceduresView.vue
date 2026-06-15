@@ -1,5 +1,4 @@
 <template>
-    <Toast />
     <AppLayout title="Procedimentos">
         <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
             <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
@@ -129,22 +128,24 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '550px' }" header="Adicionar Procedimento" :modal="true">
-        <div class="flex flex-col gap-4 py-4">
-            <div>
-                <label for="add-description" class="block font-bold mb-2">Descricao</label>
+    <Dialog v-model:visible="addDialogVisible" :style="{ width: '550px' }" header="Adicionar Procedimento" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-dialog-section">
+            <div class="app-field">
+                <label for="add-description" class="app-field-label">Descricao<span class="app-required-mark">*</span></label>
                 <InputText id="add-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="text-red-500">A descricao e obrigatoria.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricao é obrigatoria.</small>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="add-price" class="block font-bold mb-2">Valor (R$)</label>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="app-field">
+                    <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
                     <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatorio.</small>
                 </div>
-                <div>
-                    <label for="add-category" class="block font-bold mb-2">Classificacao</label>
+                <div class="app-field">
+                    <label for="add-category" class="app-field-label">Classificacao<span class="app-required-mark">*</span></label>
                     <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A categoria é obrigatoria.</small>
                 </div>
             </div>
         </div>
@@ -155,22 +156,24 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true">
-        <div class="flex flex-col gap-4 py-4">
-            <div>
-                <label for="edit-description" class="block font-bold mb-2">Descricao</label>
+    <Dialog v-model:visible="editDialogVisible" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-dialog-section">
+            <div class="app-field">
+                <label for="edit-description" class="app-field-label">Descricao<span class="app-required-mark">*</span></label>
                 <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="text-red-500">A descricao e obrigatoria.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricao e obrigatoria.</small>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label for="edit-price" class="block font-bold mb-2">Valor (R$)</label>
-                    <InputNumber id="edit-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="app-field">
+                    <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
+                    <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatorio.</small>
                 </div>
-                <div>
-                    <label for="edit-category" class="block font-bold mb-2">Classificacao</label>
-                    <Select id="edit-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                <div class="app-field">
+                    <label for="add-category" class="app-field-label">Classificacao<span class="app-required-mark">*</span></label>
+                    <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A categoria é obrigatoria.</small>
                 </div>
             </div>
         </div>
@@ -181,15 +184,12 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" :modal="true">
-        <template #header>
-            <div class="flex items-center gap-3">
-                <i class="pi pi-exclamation-triangle !text-3xl text-red-500" />
-                <span class="text-xl font-bold">Confirmar Exclusao</span>
+    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusao" :modal="true" class="app-dialog">
+        <div class="app-confirm-body">
+            <i class="pi pi-exclamation-triangle app-confirm-icon" />
+            <div class="app-dialog-section">
+                <span v-if="currentProcedure">Voce tem certeza que quer inativar <b>{{ currentProcedure.description }}</b>?</span>
             </div>
-        </template>
-        <div class="py-4">
-            <span v-if="currentProcedure">Voce tem certeza que quer inativar <b>{{ currentProcedure.description }}</b>?</span>
         </div>
         <template #footer>
             <Button label="Nao" icon="pi pi-times" text @click="deleteDialogVisible = false" />
@@ -211,7 +211,6 @@ import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import ContextMenu from 'primevue/contextmenu';
-import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import AppLayout from '../components/AppLayout.vue';
 import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';

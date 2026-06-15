@@ -21,7 +21,7 @@
           </Message>
 
           <div class="flex flex-col gap-2">
-            <label for="password" class="text-sm font-semibold text-slate-700">Nova Senha</label>
+            <label for="password" class="text-sm font-semibold text-slate-700">Nova Senha<span class="app-required-mark">*</span></label>
             <IconField>
               <InputIcon class="pi pi-lock" />
               <Password 
@@ -43,7 +43,7 @@
           </div>
           
           <div class="flex flex-col gap-2">
-            <label for="confirmPassword" class="text-sm font-semibold text-slate-700">Confirmar Senha</label>
+            <label for="confirmPassword" class="text-sm font-semibold text-slate-700">Confirmar Senha<span class="app-required-mark">*</span></label>
             <IconField>
               <InputIcon class="pi pi-lock" />
               <Password 
