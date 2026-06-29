@@ -3,6 +3,7 @@ import { api } from '../http/api';
 
 export interface ApiPatient {
   id?: number | null;
+  statusCode?: number | null;
   name?: string | null;
   email?: string | null;
   birthday?: string | null;

@@ -1,5 +1,4 @@
 <template>
-    <Toast />
     <AppLayout title="Pacientes">
         <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
             <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
@@ -26,6 +25,8 @@
                 <DataTable
                     v-model:filters="patientFilters"
                     v-model:selection="selectedPatient"
+                    v-model:contextMenuSelection="contextMenuSelection"
+                    @rowContextmenu="onRowContextMenu"
                     :value="patients"
                     :loading="loading"
                     class="app-table flex-1 px-4"
@@ -91,6 +92,9 @@
                     </Column>
 
                     <Column field="cpf" header="CPF" :showFilterMenu="false" style="width: 12rem">
+                        <template #body="{ data }">
+                            {{ formatCpf(data.cpf) }}
+                        </template>
                         <template #filter="{ filterModel, filterCallback }">
                             <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
@@ -105,8 +109,8 @@
                     <Column :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
-                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" />
-                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" />
+                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
                     </Column>
@@ -115,8 +119,10 @@
         </div>
     </AppLayout>
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="p-fluid">
-        <div class="grid grid-cols-12 gap-4 py-4">
+    <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
+
+    <Dialog v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-form-grid">
             <PatientFormFields
                 :patient="currentPatient"
                 :submitted="submitted"
@@ -131,8 +137,8 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="p-fluid">
-        <div class="grid grid-cols-12 gap-4 py-4">
+    <Dialog v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-form-grid">
             <PatientFormFields
                 :patient="currentPatient"
                 :submitted="submitted"
@@ -147,18 +153,15 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" :modal="true">
-        <template #header>
-            <div class="flex items-center gap-3">
-                <i class="pi pi-exclamation-triangle !text-3xl text-red-500" />
-                <span class="text-xl font-bold">Confirmar Exclusao</span>
+    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
+        <div class="app-confirm-body">
+            <i class="pi pi-exclamation-triangle app-confirm-icon" />
+            <div class="app-dialog-section">
+                <span v-if="currentPatient">Você tem certeza que deseja inativar o paciente <b>{{ currentPatient.name }}</b>?</span>
             </div>
-        </template>
-        <div class="py-4">
-            <span v-if="currentPatient">Voce tem certeza que quer deletar o paciente <b>{{ currentPatient.name }}</b>?</span>
         </div>
         <template #footer>
-            <Button label="Nao" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
             <Button label="Sim" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
@@ -169,14 +172,15 @@ import { computed, defineComponent, h, onMounted, ref } from 'vue';
 import type { PropType } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import Button from 'primevue/button';
+import ContextMenu from 'primevue/contextmenu';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
+import InputMask from 'primevue/inputmask';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
-import Toast from 'primevue/toast';
 import { useToast } from 'primevue/usetoast';
 import AppLayout from '../components/AppLayout.vue';
 import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
@@ -200,6 +204,18 @@ interface Patient {
     profession: string;
     workMobilePhone: string;
     email: string;
+}
+
+interface PatientValidationErrors {
+    cpf: string;
+    zipCode: string;
+    email: string;
+}
+
+interface ViaCepResponse {
+    cep?: string;
+    logradouro?: string;
+    erro?: boolean;
 }
 
 const PatientFormFields = defineComponent({
@@ -232,16 +248,26 @@ const PatientFormFields = defineComponent({
             addressNumber: props.submitted && !props.patient.addressNumber,
             email: props.submitted && !props.patient.email
         }));
+        const invalid = computed(() => ({
+            cpf: required.value.cpf || !!patientValidationErrors.value.cpf,
+            zipCode: !!patientValidationErrors.value.zipCode,
+            email: required.value.email || !!patientValidationErrors.value.email
+        }));
 
-        const field = (id: string, label: string, child: ReturnType<typeof h>, error?: string) => h('div', { class: 'col-span-12 md:col-span-4' }, [
-            h('label', { for: `${props.prefix}-${id}`, class: 'block font-bold mb-2' }, label),
+        const label = (id: string, text: string, required = false) => h('label', { for: `${props.prefix}-${id}`, class: 'app-field-label' }, [
+            text,
+            required ? h('span', { class: 'app-required-mark' }, '*') : null
+        ]);
+
+        const field = (id: string, text: string, child: ReturnType<typeof h>, error?: string, isRequired = false) => h('div', { class: 'app-field col-span-12 md:col-span-4' }, [
+            label(id, text, isRequired),
             child,
-            error ? h('small', { class: 'text-red-500' }, error) : null
+            error ? h('small', { class: 'app-field-error' }, error) : null
         ]);
 
         return () => [
-            h('div', { class: 'col-span-12 md:col-span-8' }, [
-                h('label', { for: `${props.prefix}-name`, class: 'block font-bold mb-2' }, 'Nome Completo'),
+            h('div', { class: 'app-field col-span-12 md:col-span-8' }, [
+                label('name', 'Nome Completo', true),
                 h(InputText, {
                     id: `${props.prefix}-name`,
                     modelValue: props.patient.name,
@@ -250,16 +276,20 @@ const PatientFormFields = defineComponent({
                     autofocus: true,
                     class: 'w-full'
                 }),
-                required.value.name ? h('small', { class: 'text-red-500' }, 'O nome e obrigatorio.') : null
+                required.value.name ? h('small', { class: 'app-field-error' }, 'O nome é obrigatório.') : null
             ]),
-            field('cpf', 'CPF', h(InputText, {
+            field('cpf', 'CPF', h(InputMask, {
                 id: `${props.prefix}-cpf`,
                 modelValue: props.patient.cpf,
-                'onUpdate:modelValue': (value: string) => props.patient.cpf = value,
+                'onUpdate:modelValue': (value: string) => {
+                    props.patient.cpf = value;
+                    patientValidationErrors.value.cpf = '';
+                },
+                mask: '999.999.999-99',
                 placeholder: '000.000.000-00',
-                invalid: required.value.cpf,
+                invalid: invalid.value.cpf,
                 class: 'w-full'
-            }), required.value.cpf ? 'O CPF e obrigatorio.' : ''),
+            }), required.value.cpf ? 'O CPF é obrigatório.' : patientValidationErrors.value.cpf, true),
             field('birth', 'Data de Nascimento', h(InputText, {
                 id: `${props.prefix}-birth`,
                 type: 'date',
@@ -267,7 +297,7 @@ const PatientFormFields = defineComponent({
                 'onUpdate:modelValue': (value: string) => props.patient.birthDate = value,
                 invalid: required.value.birthDate,
                 class: 'w-full'
-            }), required.value.birthDate ? 'A data de nascimento e obrigatoria.' : ''),
+            }), required.value.birthDate ? 'A data de nascimento é obrigatória.' : '', true),
             field('gender', 'Sexo', h(Select, {
                 id: `${props.prefix}-gender`,
                 modelValue: props.patient.gender,
@@ -276,27 +306,33 @@ const PatientFormFields = defineComponent({
                 placeholder: 'Selecione',
                 invalid: required.value.gender,
                 class: 'w-full'
-            }), required.value.gender ? 'O sexo e obrigatorio.' : ''),
-            h('div', { class: 'col-span-12' }, [
-                h('label', { for: `${props.prefix}-responsible`, class: 'block font-bold mb-2' }, 'Nome do Responsavel'),
+            }), required.value.gender ? 'O sexo é obrigatório.' : '', true),
+            h('div', { class: 'app-field col-span-12' }, [
+                label('responsible', 'Nome do Responsavel'),
                 h(InputText, {
                     id: `${props.prefix}-responsible`,
                     modelValue: props.patient.responsibleName,
                     'onUpdate:modelValue': (value: string) => props.patient.responsibleName = value,
-                    invalid: required.value.responsibleName,
                     class: 'w-full'
-                }),
-                required.value.responsibleName ? h('small', { class: 'text-red-500' }, 'O responsavel e obrigatorio para o cadastro no backend.') : null
+                })
             ]),
-            field('zip', 'CEP', h(InputText, {
+            field('zip', 'CEP', h(InputMask, {
                 id: `${props.prefix}-zip`,
                 modelValue: props.patient.zipCode,
-                'onUpdate:modelValue': (value: string) => props.patient.zipCode = value,
+                'onUpdate:modelValue': (value: string) => {
+                    props.patient.zipCode = value;
+                    patientValidationErrors.value.zipCode = '';
+                },
+                onBlur: () => {
+                    void validateAndFillZipCode(props.patient);
+                },
+                mask: '99999-999',
                 placeholder: '00000-000',
+                invalid: invalid.value.zipCode,
                 class: 'w-full'
-            })),
-            h('div', { class: 'col-span-12 md:col-span-6' }, [
-                h('label', { for: `${props.prefix}-address`, class: 'block font-bold mb-2' }, 'Endereco Completo'),
+            }), patientValidationErrors.value.zipCode),
+            h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
+                label('address', 'Endereço Completo', true),
                 h(InputText, {
                     id: `${props.prefix}-address`,
                     modelValue: props.patient.address,
@@ -304,51 +340,59 @@ const PatientFormFields = defineComponent({
                     invalid: required.value.address,
                     class: 'w-full'
                 }),
-                required.value.address ? h('small', { class: 'text-red-500' }, 'O endereco e obrigatorio.') : null
+                required.value.address ? h('small', { class: 'app-field-error' }, 'O endereço é obrigatório.') : null
             ]),
-            field('address-number', 'Numero', h(InputText, {
+            field('address-number', 'Número', h(InputText, {
                 id: `${props.prefix}-address-number`,
                 modelValue: props.patient.addressNumber,
                 'onUpdate:modelValue': (value: string) => props.patient.addressNumber = value,
                 invalid: required.value.addressNumber,
                 class: 'w-full'
-            }), required.value.addressNumber ? 'O numero e obrigatorio.' : ''),
-            field('home-phone', 'Telefone Residencial', h(InputText, {
+            }), required.value.addressNumber ? 'O número é obrigatório.' : '', true),
+            field('home-phone', 'Telefone Residencial', h(InputMask, {
                 id: `${props.prefix}-home-phone`,
                 modelValue: props.patient.homePhone,
                 'onUpdate:modelValue': (value: string) => props.patient.homePhone = value,
+                mask: '(99) 9999-9999',
                 placeholder: '(00) 0000-0000',
                 class: 'w-full'
             })),
-            field('mobile-phone', 'Celular Pessoal', h(InputText, {
+            field('mobile-phone', 'Celular Pessoal', h(InputMask, {
                 id: `${props.prefix}-mobile-phone`,
                 modelValue: props.patient.mobilePhone,
                 'onUpdate:modelValue': (value: string) => props.patient.mobilePhone = value,
+                mask: '(99) 99999-9999',
                 placeholder: '(00) 90000-0000',
                 class: 'w-full'
             })),
-            field('work-phone', 'Celular Comercial', h(InputText, {
+            field('work-phone', 'Celular Comercial', h(InputMask, {
                 id: `${props.prefix}-work-phone`,
                 modelValue: props.patient.workMobilePhone,
                 'onUpdate:modelValue': (value: string) => props.patient.workMobilePhone = value,
+                mask: '(99) 99999-9999',
                 placeholder: '(00) 90000-0000',
                 class: 'w-full'
             })),
-            h('div', { class: 'col-span-12 md:col-span-6' }, [
-                h('label', { for: `${props.prefix}-email`, class: 'block font-bold mb-2' }, 'E-mail'),
+            h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
+                label('email', 'E-mail', true),
                 h(InputText, {
                     id: `${props.prefix}-email`,
                     type: 'email',
                     modelValue: props.patient.email,
-                    'onUpdate:modelValue': (value: string) => props.patient.email = value,
+                    'onUpdate:modelValue': (value: string) => {
+                        props.patient.email = value;
+                        patientValidationErrors.value.email = '';
+                    },
                     placeholder: 'paciente@exemplo.com',
-                    invalid: required.value.email,
+                    invalid: invalid.value.email,
                     class: 'w-full'
                 }),
-                required.value.email ? h('small', { class: 'text-red-500' }, 'O e-mail e obrigatorio.') : null
+                required.value.email || patientValidationErrors.value.email
+                    ? h('small', { class: 'app-field-error' }, required.value.email ? 'O e-mail é obrigatório.' : patientValidationErrors.value.email)
+                    : null
             ]),
-            h('div', { class: 'col-span-12 md:col-span-6' }, [
-                h('label', { for: `${props.prefix}-profession`, class: 'block font-bold mb-2' }, 'Profissao'),
+            h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
+                label('profession', 'Profissão'),
                 h(InputText, {
                     id: `${props.prefix}-profession`,
                     modelValue: props.patient.profession,
@@ -366,12 +410,27 @@ const patients = ref<Patient[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const selectedPatient = ref<Patient | null>(null);
+const contextMenuSelection = ref<Patient | null>(null);
 const metaKey = ref(true);
 const addDialogVisible = ref(false);
 const editDialogVisible = ref(false);
 const deleteDialogVisible = ref(false);
 const submitted = ref(false);
 const currentPatient = ref<Patient>(getEmptyPatient());
+const patientValidationErrors = ref<PatientValidationErrors>({
+    cpf: '',
+    zipCode: '',
+    email: ''
+});
+const cm = ref();
+
+const menuItems = ref([
+    {
+        label: 'Reativar paciente',
+        icon: 'pi pi-refresh',
+        command: () => reactivatePatient()
+    }
+]);
 
 const patientFilters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -406,6 +465,79 @@ function getEmptyPatient(): Patient {
 
 const formatDisplayId = (id?: number | null) => id ? `#${id.toString().padStart(7, '0')}` : '';
 const onlyDigits = (value: string) => value.replace(/\D/g, '');
+const formatCpf = (value?: string | null) => {
+    const digits = onlyDigits(value ?? '');
+    if (digits.length !== 11) return value ?? '';
+
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+};
+const statusFromCode = (statusCode?: number | null) => statusCode === 1 ? 'Inativo' : 'Ativo';
+const statusToCode = (status: string) => status === 'Inativo' ? 1 : 0;
+
+const clearPatientValidationErrors = () => {
+    patientValidationErrors.value = {
+        cpf: '',
+        zipCode: '',
+        email: ''
+    };
+};
+
+const isValidCpf = (value: string) => {
+    const digits = onlyDigits(value);
+
+    if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+
+    const calculateDigit = (base: string, factor: number) => {
+        const total = base.split('').reduce((acc, digit) => {
+            acc.sum += Number(digit) * acc.factor;
+            acc.factor -= 1;
+            return acc;
+        }, { sum: 0, factor });
+        const rest = (total.sum * 10) % 11;
+
+        return rest === 10 ? 0 : rest;
+    };
+
+    const firstDigit = calculateDigit(digits.slice(0, 9), 10);
+    const secondDigit = calculateDigit(digits.slice(0, 10), 11);
+
+    return firstDigit === Number(digits[9]) && secondDigit === Number(digits[10]);
+};
+
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
+
+const validateAndFillZipCode = async (patient: Patient) => {
+    const zipCode = onlyDigits(patient.zipCode);
+    patientValidationErrors.value.zipCode = '';
+
+    if (!zipCode) return true;
+
+    if (zipCode.length !== 8) {
+        patientValidationErrors.value.zipCode = 'O CEP deve conter 8 digitos.';
+        return false;
+    }
+
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${zipCode}/json/`);
+        if (!response.ok) throw new Error('CEP lookup failed.');
+
+        const data = await response.json() as ViaCepResponse;
+        if (data.erro) {
+            patientValidationErrors.value.zipCode = 'CEP nao encontrado.';
+            return false;
+        }
+
+        patient.zipCode = data.cep ?? patient.zipCode;
+        if (data.logradouro) {
+            patient.address = data.logradouro;
+        }
+
+        return true;
+    } catch {
+        patientValidationErrors.value.zipCode = 'Nao foi possivel validar o CEP.';
+        return false;
+    }
+};
 
 const calculateAge = (birthDate: string) => {
     if (!birthDate) return 0;
@@ -425,7 +557,7 @@ const calculateAge = (birthDate: string) => {
 const toViewPatient = (patient: ApiPatient, fallback?: Patient): Patient => ({
     id: patient.id ?? fallback?.id ?? null,
     displayId: formatDisplayId(patient.id ?? fallback?.id),
-    status: 'Ativo',
+    status: patient.statusCode == null ? fallback?.status ?? 'Ativo' : statusFromCode(patient.statusCode),
     name: patient.name ?? fallback?.name ?? '',
     birthDate: patient.birthday ?? fallback?.birthDate ?? '',
     age: patient.age ?? fallback?.age ?? null,
@@ -444,6 +576,7 @@ const toViewPatient = (patient: ApiPatient, fallback?: Patient): Patient => ({
 
 const toApiPatient = (patient: Patient): ApiPatient => ({
     id: patient.id,
+    statusCode: statusToCode(patient.status),
     name: patient.name,
     email: patient.email,
     birthday: patient.birthDate,
@@ -459,6 +592,14 @@ const toApiPatient = (patient: Patient): ApiPatient => ({
     occupation: patient.profession || null
 });
 
+const updatePatientInList = (patient: ApiPatient, fallback?: Patient) => {
+    const index = patients.value.findIndex(p => p.id === patient.id);
+
+    if (index !== -1) {
+        patients.value[index] = toViewPatient(patient, fallback);
+    }
+};
+
 const isPatientValid = (patient: Patient) => {
     return !!(
         patient.name?.trim() &&
@@ -470,6 +611,26 @@ const isPatientValid = (patient: Patient) => {
         patient.address?.trim() &&
         patient.addressNumber?.trim()
     );
+};
+
+const validatePatient = async (patient: Patient) => {
+    clearPatientValidationErrors();
+
+    if (patient.cpf?.trim() && !isValidCpf(patient.cpf)) {
+        patientValidationErrors.value.cpf = 'O CPF informado e invalido.';
+    }
+
+    if (patient.email?.trim() && !isValidEmail(patient.email)) {
+        patientValidationErrors.value.email = 'Informe um e-mail valido.';
+    }
+
+    const hasValidZipCode = await validateAndFillZipCode(patient);
+    const hasRequiredFields = isPatientValid(patient);
+
+    return hasRequiredFields &&
+        !patientValidationErrors.value.cpf &&
+        !patientValidationErrors.value.email &&
+        hasValidZipCode;
 };
 
 const showError = (detail: string) => {
@@ -491,19 +652,21 @@ const loadPatients = async () => {
 
 const openAddDialog = () => {
     currentPatient.value = getEmptyPatient();
+    clearPatientValidationErrors();
     submitted.value = false;
     addDialogVisible.value = true;
 };
 
 const closeAddDialog = () => {
     addDialogVisible.value = false;
+    clearPatientValidationErrors();
     submitted.value = false;
 };
 
 const saveAddedPatient = async () => {
     submitted.value = true;
 
-    if (!isPatientValid(currentPatient.value)) return;
+    if (!(await validatePatient(currentPatient.value))) return;
 
     saving.value = true;
 
@@ -512,6 +675,7 @@ const saveAddedPatient = async () => {
         patients.value.unshift(toViewPatient(savedPatient, currentPatient.value));
         addDialogVisible.value = false;
         currentPatient.value = getEmptyPatient();
+        clearPatientValidationErrors();
         toast.add({ severity: 'success', summary: 'Paciente salvo', detail: 'Cadastro realizado com sucesso.', life: 3000 });
     } catch (error: unknown) {
         showError(getPatientServiceErrorMessage(error));
@@ -522,32 +686,31 @@ const saveAddedPatient = async () => {
 
 const openEditDialog = (patient: Patient) => {
     currentPatient.value = { ...patient };
+    clearPatientValidationErrors();
     submitted.value = false;
     editDialogVisible.value = true;
 };
 
 const closeEditDialog = () => {
     editDialogVisible.value = false;
+    clearPatientValidationErrors();
     submitted.value = false;
 };
 
 const saveEditedPatient = async () => {
     submitted.value = true;
 
-    if (!isPatientValid(currentPatient.value)) return;
+    if (!(await validatePatient(currentPatient.value))) return;
 
     saving.value = true;
 
     try {
         const savedPatient = await PatientService.edit(toApiPatient(currentPatient.value));
-        const index = patients.value.findIndex(p => p.id === savedPatient.id);
-
-        if (index !== -1) {
-            patients.value[index] = toViewPatient(savedPatient, currentPatient.value);
-        }
+        updatePatientInList(savedPatient, currentPatient.value);
 
         editDialogVisible.value = false;
         currentPatient.value = getEmptyPatient();
+        clearPatientValidationErrors();
         toast.add({ severity: 'success', summary: 'Paciente atualizado', detail: 'Alteracoes salvas com sucesso.', life: 3000 });
     } catch (error: unknown) {
         showError(getPatientServiceErrorMessage(error));
@@ -567,11 +730,37 @@ const executeDelete = async () => {
     saving.value = true;
 
     try {
-        await PatientService.delete(currentPatient.value.id);
-        patients.value = patients.value.filter(patient => patient.id !== currentPatient.value.id);
+        const inactivePatient = { ...currentPatient.value, status: 'Inativo' };
+        const savedPatient = await PatientService.edit(toApiPatient(inactivePatient));
+        updatePatientInList(savedPatient, inactivePatient);
+
         deleteDialogVisible.value = false;
         currentPatient.value = getEmptyPatient();
-        toast.add({ severity: 'success', summary: 'Paciente excluido', detail: 'Registro removido com sucesso.', life: 3000 });
+        toast.add({ severity: 'success', summary: 'Paciente inativado', detail: 'Registro atualizado com sucesso.', life: 3000 });
+    } catch (error: unknown) {
+        showError(getPatientServiceErrorMessage(error));
+    } finally {
+        saving.value = false;
+    }
+};
+
+const onRowContextMenu = (event: any) => {
+    if (contextMenuSelection.value?.status === 'Inativo') {
+        cm.value.show(event.originalEvent);
+    }
+};
+
+const reactivatePatient = async () => {
+    if (!contextMenuSelection.value) return;
+
+    saving.value = true;
+
+    try {
+        const activePatient = { ...contextMenuSelection.value, status: 'Ativo' };
+        const savedPatient = await PatientService.edit(toApiPatient(activePatient));
+        updatePatientInList(savedPatient, activePatient);
+        contextMenuSelection.value = null;
+        toast.add({ severity: 'success', summary: 'Paciente reativado', detail: 'Registro atualizado com sucesso.', life: 3000 });
     } catch (error: unknown) {
         showError(getPatientServiceErrorMessage(error));
     } finally {
