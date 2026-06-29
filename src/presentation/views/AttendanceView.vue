@@ -18,9 +18,10 @@
             </div>
             <Button
               v-if="slotProps.message.patientId"
-              label="Ver"
-              icon="pi pi-eye"
+              :label="patientDetailsLoadingId === Number(slotProps.message.patientId) ? 'Carregando...' : 'Ver'"
+              :icon="patientDetailsLoadingId === Number(slotProps.message.patientId) ? 'pi pi-spin pi-spinner' : 'pi pi-eye'"
               size="small"
+              :disabled="patientDetailsLoadingId === Number(slotProps.message.patientId)"
               class="self-start !rounded-lg"
               @click.stop="openPatientDialogById(slotProps.message.patientId)"
             />
@@ -37,19 +38,13 @@
 
           <form @submit.prevent="registerPatient" class="space-y-4">
             <div class="flex flex-col gap-2">
-              <label for="patientId" class="font-bold text-[var(--p-surface-800)] text-sm">
-                Paciente
+              <label for="patientName" class="font-bold text-[var(--p-surface-800)] text-sm">
+                Nome
               </label>
-              <Select
-                id="patientId"
-                v-model="selectedPatientId"
-                :options="patients"
-                option-label="name"
-                option-value="id"
-                placeholder="Selecione um paciente"
-                filter
-                :loading="isLoadingPatients"
-                :disabled="isLoadingPatients"
+              <InputText
+                id="patientName"
+                v-model="patientName"
+                placeholder="Digite o nome"
                 class="w-full"
               />
             </div>
@@ -57,7 +52,7 @@
               type="submit"
               :label="isLoading ? 'Enviando...' : 'Adicionar a Fila'"
               :icon="isLoading ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
-              :disabled="isLoading || !selectedPatientId || isLoadingPatients"
+              :disabled="isLoading || !patientName.trim()"
               class="w-full !bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !font-semibold !text-[var(--p-surface-0)] transition-all h-10 flex items-center justify-center !rounded-lg shadow-md"
             />
           </form>
@@ -69,32 +64,24 @@
               <i class="pi pi-users text-xl text-[var(--p-primary-600)]"></i>
               <h2 class="text-lg font-bold text-[var(--p-surface-600)] m-0">Fila de Espera</h2>
             </div>
-            <Button
-              icon="pi pi-refresh"
-              variant="text"
-              size="small"
-              @click="fetchQueue"
-              class="!text-[var(--p-surface-500)] hover:!text-[var(--p-primary-600)] hover:!bg-[var(--p-surface-100)] !w-8 !h-8 !p-0"
-              title="Atualizar manualmente (GET)"
-            />
           </div>
 
           <div class="flex-1 overflow-y-auto pr-2 rounded-lg">
             <ul v-if="queue.length > 0" class="space-y-2">
               <li
                 v-for="(attendance, index) in queue"
-                :key="attendance.id"
+                :key="`${attendance}-${index}`"
                 class="bg-[var(--p-surface-100)] border border-[var(--p-surface-200)] rounded-lg p-3 flex justify-between items-center hover:bg-[var(--p-surface-200)] transition-colors cursor-default"
               >
                 <div class="flex items-center">
                   <span class="text-[var(--p-surface-400)] font-bold mr-3">#{{ index + 1 }}</span>
                   <span class="text-sm font-semibold text-[var(--p-surface-800)]">
-                    {{ attendance.patientName || getPatientName(attendance.patientId) || 'Paciente sem nome' }}
+                    {{ attendance }}
                   </span>
                 </div>
                 <span class="px-3 py-1 rounded-full inline-flex items-center gap-2 bg-[var(--p-surface-0)] text-[var(--p-surface-600)] border border-[var(--p-surface-300)] text-xs font-bold shadow-sm">
                   <span class="w-2 h-2 rounded-full bg-[var(--p-primary-500)]"></span>
-                  Ficha: {{ attendance.id }}
+                  Aguardando
                 </span>
               </li>
             </ul>
@@ -151,46 +138,29 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import Select from 'primevue/select'
+import InputText from 'primevue/inputtext'
 import Toast from 'primevue/toast'
-import type { ToastMessageOptions } from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
-import { AuthService } from '../../infrastructure/services/AuthService'
-import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService'
 import type { ApiPatient } from '../../infrastructure/services/PatientService'
+import { PatientServiceClient } from '../../grpc/Patient_detailsServiceClientPb'
+import { PatientDetailsRequest, PatientDetailsResponse } from '../../grpc/patient_details_pb'
 
-interface Attendance {
-  id: number
-  patientId?: number | null
-  patientName?: string | null
-}
-
-interface AttendanceNotification extends ToastMessageOptions {
-  patientId?: number
-}
-
-interface WebSocketPayload {
-  senderEmail?: string
-  message?: string
-  patientId?: number
-  patient?: ApiPatient
-}
-
-const selectedPatientId = ref<number | null>(null)
+const patientName = ref('')
 const isLoading = ref(false)
-const isLoadingPatients = ref(false)
-const queue = ref<Attendance[]>([])
-const patients = ref<ApiPatient[]>([])
+const queue = ref<string[]>([])
 const selectedPatient = ref<ApiPatient | null>(null)
 const patientDialogVisible = ref(false)
+const patientDetailsLoadingId = ref<number | null>(null)
 let ws: WebSocket | null = null
 
-const API_BASE_URL = 'http://localhost:9090/attendance'
-const WS_URL = 'ws://localhost:9090/attendance/ws'
+const PATIENT_SEND_BASE_URL = 'http://localhost:8080/patient/send'
+const WS_URL = 'ws://localhost:8081/topic/651ecc5d-fbd5-49e9-9a58-0d887175d29c'
+const GRPC_BASE_URL = import.meta.env.VITE_GRPC_BASE_URL ?? 'http://localhost:9000'
 const TOKEN_STORAGE_KEY = 'auth_token'
 const TOKEN_COOKIE_NAME = 'token'
 
 const toast = useToast()
+const patientGrpcClient = new PatientServiceClient(GRPC_BASE_URL)
 
 const patientAddress = computed(() => {
   if (!selectedPatient.value) return '-'
@@ -215,46 +185,68 @@ const showError = (detail: string) => {
   toast.add({ severity: 'error', summary: 'Erro', detail, life: 5000 })
 }
 
-const getPatientName = (patientId?: number | null) => {
-  if (!patientId) return ''
-  return patients.value.find(patient => patient.id === patientId)?.name ?? ''
-}
+const getPatientDetailsByGrpc = (patientId: number) => {
+  return new Promise<ApiPatient>((resolve, reject) => {
+    const request = new PatientDetailsRequest()
+    request.setId(patientId)
 
-const normalizePatientId = (payload: WebSocketPayload) => {
-  return payload.patientId ?? payload.patient?.id ?? null
-}
+    patientGrpcClient.getPatientDetails(request, {}, (err, response: PatientDetailsResponse) => {
+      if (err) {
+        reject(new Error(err.message))
+        return
+      }
 
-const getPayloadMessage = (payload: WebSocketPayload, patientId?: number | null) => {
-  return payload.message ?? (patientId ? `Paciente ${patientId} adicionado a fila.` : 'Paciente adicionado a fila.')
-}
+      if (!response.getSuccess()) {
+        reject(new Error(response.getErrorMessage() || 'Paciente nao encontrado.'))
+        return
+      }
 
-const loadPatients = async () => {
-  isLoadingPatients.value = true
+      const grpcPatient = response.getPatient()
 
-  try {
-    patients.value = await PatientService.list()
-  } catch (error) {
-    showError(getPatientServiceErrorMessage(error))
-  } finally {
-    isLoadingPatients.value = false
-  }
+      if (!grpcPatient) {
+        reject(new Error('Paciente nao encontrado.'))
+        return
+      }
+
+      resolve({
+        id: grpcPatient.getId(),
+        name: grpcPatient.getName(),
+        email: grpcPatient.getEmail(),
+        birthday: grpcPatient.getBirthday(),
+        age: grpcPatient.getAge(),
+        sex: grpcPatient.getSex(),
+        responsible: grpcPatient.getResponsible(),
+        document: grpcPatient.getDocument(),
+        address: grpcPatient.getAddress(),
+        addressesNumber: grpcPatient.getAddressesNumber(),
+        homePhoneNumber: grpcPatient.getHomePhoneNumber(),
+        commercialPhoneNumber: grpcPatient.getCommercialPhoneNumber(),
+        phoneNumber: grpcPatient.getPhoneNumber(),
+        occupation: grpcPatient.getOccupation()
+      })
+    })
+  })
 }
 
 const openPatientDialogById = async (patientId: number) => {
-  let patient = patients.value.find(item => item.id === patientId)
+  const normalizedPatientId = Number(patientId)
 
-  if (!patient) {
-    await loadPatients()
-    patient = patients.value.find(item => item.id === patientId)
-  }
-
-  if (!patient) {
-    showError('Paciente nao encontrado.')
+  if (!normalizedPatientId) {
+    showError('ID do paciente invalido.')
     return
   }
 
-  selectedPatient.value = patient
-  patientDialogVisible.value = true
+  patientDetailsLoadingId.value = normalizedPatientId
+
+  try {
+    syncTokenCookie()
+    selectedPatient.value = await getPatientDetailsByGrpc(normalizedPatientId)
+    patientDialogVisible.value = true
+  } catch (error) {
+    showError(error instanceof Error ? error.message : 'Nao foi possivel buscar os dados do paciente.')
+  } finally {
+    patientDetailsLoadingId.value = null
+  }
 }
 
 const connectWebSocket = () => {
@@ -266,33 +258,16 @@ const connectWebSocket = () => {
 
   ws.onmessage = (event) => {
     console.log('Mensagem recebida do servidor:', event.data)
+    const message = String(event.data)
 
-    try {
-      const payload = JSON.parse(event.data) as WebSocketPayload
-      console.log(payload)
-      const currentUser = AuthService.getUser()
-      const patientId = normalizePatientId(payload)
-      const patientName = payload.patient?.name ?? getPatientName(patientId)
+    toast.add({
+      severity: 'info',
+      summary: 'Novo Atendimento',
+      detail: message,
+      life: 10000
+    })
 
-      
-        const message: AttendanceNotification = {
-          severity: 'info',
-          summary: 'Novo Atendimento',
-          detail: `Paciente: ${patientName}.`,
-          life: 10000
-        }
-
-        if (patientId) {
-          message.patientId = patientId
-        }
-
-        toast.add(message)
-    
-    } catch (error) {
-      console.error('Erro ao processar mensagem do WebSocket. O formato esperado e JSON.', error)
-    }
-
-    fetchQueue()
+    queue.value.push(message)
   }
 
   ws.onerror = (error) => {
@@ -305,55 +280,29 @@ const connectWebSocket = () => {
 }
 
 const registerPatient = async () => {
-  if (!selectedPatientId.value) return
+  const name = patientName.value.trim()
+
+  if (!name) return
 
   isLoading.value = true
   try {
     syncTokenCookie()
 
-    const response = await fetch(`${API_BASE_URL}/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ patientId: selectedPatientId.value })
+    await fetch(`${PATIENT_SEND_BASE_URL}/${encodeURIComponent(name)}`, {
+      method: 'GET',
+      credentials: 'include'
     })
 
-    if (response.ok) {
-      selectedPatientId.value = null
-    } else {
-      console.error('Falha ao registrar')
-      showError('Falha ao registrar paciente na fila.')
-    }
+    patientName.value = ''
   } catch (error) {
     console.error('Erro na comunicacao com a API REST:', error)
-    showError('Nao foi possivel conectar com a API de atendimento.')
   } finally {
     isLoading.value = false
   }
 }
 
-const fetchQueue = async () => {
-  try {
-    syncTokenCookie()
-
-    const response = await fetch(`${API_BASE_URL}/list`, {
-      credentials: 'include'
-    })
-    if (response.ok) {
-      const data = await response.json()
-      queue.value = data.data || data
-    }
-  } catch (error) {
-    console.error('Erro ao buscar a fila de mensagens:', error)
-  }
-}
-
 onMounted(() => {
   connectWebSocket()
-  loadPatients()
-  fetchQueue()
 })
 
 onUnmounted(() => {
