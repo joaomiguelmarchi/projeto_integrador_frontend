@@ -50,7 +50,7 @@
                     <template #empty>
                         <div class="app-table-empty-state flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
                             <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum orcamento encontrado.</p>
+                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum orçamento encontrado.</p>
                         </div>
                     </template>
 
@@ -81,7 +81,7 @@
                         </template>
                     </Column>
 
-                    <Column field="generationDate" header="Data de Geracao" :showFilterMenu="false" style="width: 12rem;">
+                    <Column field="generationDate" header="Data de Geração" :showFilterMenu="false" style="width: 12rem;">
                         <template #body="{ data }">
                             {{ formatDate(data.generationDate) }}
                         </template>
@@ -109,7 +109,7 @@
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
                                 <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button icon="pi pi-envelope" variant="outlined" rounded size="small" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                                 <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
@@ -121,7 +121,7 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Novo Orcamento" :modal="true" class="app-dialog p-fluid">
+    <Dialog v-model:visible="addDialogVisible" :style="{ width: '980px' }" header="Novo Orcamento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <QuotationGeneralFields
                 mode="add"
@@ -136,7 +136,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Orcamento" :modal="true" class="app-dialog p-fluid">
+    <Dialog v-model:visible="editDialogVisible" :style="{ width: '980px' }" header="Detalhes do Orçamento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <QuotationGeneralFields
                 mode="edit"
@@ -151,15 +151,15 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusao" :modal="true" class="app-dialog">
+    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
-                <span v-if="currentQuotation">Tem certeza que deseja inativar o orcamento do paciente <b>{{ currentQuotation.patientName }}</b>?</span>
+                <span v-if="currentQuotation">Tem certeza que deseja inativar o orçamento do paciente <b>{{ currentQuotation.patientName }}</b>?</span>
             </div>
         </div>
         <template #footer>
-            <Button label="Nao" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
             <Button label="Sim" icon="pi pi-check" severity="danger" @click="executeDelete" />
         </template>
     </Dialog>
@@ -187,13 +187,17 @@ import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
 import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
+import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';
+import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
 import AppLayout from '../components/AppLayout.vue';
 
 interface QuotationProcedure {
-    id: string;
-    name: string;
+    rowKey: string;
+    procedureId: number | null;
+    procedureIdText: string;
+    description: string;
     value: number;
-    quantity: number;
+    classification: string;
 }
 
 interface Quotation {
@@ -213,6 +217,14 @@ interface PatientOption {
     cpf: string;
 }
 
+interface ProcedureOption {
+    id: number | null;
+    displayId: string;
+    description: string;
+    value: number;
+    classification: string;
+}
+
 const quotationsMock = ref<Quotation[]>([
     {
         id: '#0000001',
@@ -223,8 +235,8 @@ const quotationsMock = ref<Quotation[]>([
         patientCpf: '111.222.333-44',
         totalValue: 1050.00,
         procedures: [
-            { id: 'p1', name: 'Limpeza Simples', value: 150.00, quantity: 1 },
-            { id: 'p2', name: 'Clareamento Dental', value: 900.00, quantity: 1 }
+            { rowKey: 'mock-1-p1', procedureId: 1, procedureIdText: '#0000001', description: 'Limpeza Simples', value: 150.00, classification: 'Preventivo' },
+            { rowKey: 'mock-1-p2', procedureId: 2, procedureIdText: '#0000002', description: 'Clareamento Dental', value: 900.00, classification: 'Estetico' }
         ]
     },
     { id: '#0000002', patientId: null, status: 'Aprovado', generationDate: '2026-05-18', patientName: 'Maria Santos Souza', patientCpf: '555.666.777-88', totalValue: 2450.00, procedures: [] },
@@ -243,7 +255,12 @@ const menuItems = ref<any[]>([]);
 const registeredPatients = ref<PatientOption[]>([]);
 const patientSuggestions = ref<PatientOption[]>([]);
 const selectedPatient = ref<PatientOption | string | null>(null);
+const registeredProcedures = ref<ProcedureOption[]>([]);
+const procedureDescriptionSuggestions = ref<ProcedureOption[]>([]);
 const patientVirtualScrollerOptions = {
+    itemSize: 44
+};
+const procedureVirtualScrollerOptions = {
     itemSize: 44
 };
 
@@ -276,13 +293,13 @@ const QuotationGeneralFields = defineComponent({
     setup(props) {
         const prefix = props.mode;
 
-        return () => h(Accordion, { value: '0' }, () => [
+        return () => h(Accordion, { value: '0', class: 'quotation-general-accordion' }, () => [
             h(AccordionPanel, { value: '0' }, () => [
-                h(AccordionHeader, null, () => 'Informacoes Gerais'),
+                h(AccordionHeader, null, () => 'Informações Gerais'),
                 h(AccordionContent, null, () => [
                     h('div', { class: 'grid grid-cols-12 gap-4 pt-2' }, [
                         h('div', { class: 'app-field col-span-12 md:col-span-4' }, [
-                            h('label', { for: `${prefix}-cpf`, class: 'app-field-label' }, 'CPF do Paciente'),
+                            h('label', { for: `${prefix}-cpf`, class: 'app-field-label' }, 'CPF'),
                             h(InputMask, {
                                 id: `${prefix}-cpf`,
                                 modelValue: currentQuotation.value.patientCpf,
@@ -322,7 +339,7 @@ const QuotationGeneralFields = defineComponent({
                                 onItemSelect: selectPatientFromSearch
                             }),
                             props.submitted && !currentQuotation.value.patientName
-                                ? h('small', { class: 'app-field-error' }, 'O nome do paciente e obrigatorio.')
+                                ? h('small', { class: 'app-field-error' }, 'O nome do paciente é obrigatorio.')
                                 : null
                         ]),
                         h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
@@ -363,44 +380,92 @@ const QuotationProceduresSection = defineComponent({
         return () => h('div', { class: 'quotation-procedures-section' }, [
             h('div', { class: 'quotation-procedures-header' }, [
                 h('div', null, [
-                    h('h3', { class: 'text-lg font-bold text-[var(--p-surface-700)] m-0' }, 'Procedimentos do Orcamento'),
-                    h('p', { class: 'text-sm text-[var(--p-surface-500)] m-0 mt-1' }, 'Estrutura reservada para a etapa de procedimentos.')
+                    h('h3', { class: 'text-lg font-bold text-[var(--p-surface-700)] m-0' }, 'Procedimentos do Orçamento'),
+                    h('p', { class: 'text-sm text-[var(--p-surface-500)] m-0 mt-1' }, 'Adicione os procedimentos vinculados a este orçamento.')
                 ]),
                 h(Button, {
                     label: 'Adicionar Procedimento',
                     icon: 'pi pi-plus',
                     size: 'small',
                     outlined: true,
-                    disabled: true
+                    onClick: addProcedureRow
                 })
             ]),
             currentQuotation.value.procedures.length
                 ? h(DataTable, {
                     value: currentQuotation.value.procedures,
-                    class: 'border border-[var(--p-surface-200)] rounded-lg overflow-hidden',
+                    class: 'quotation-procedures-table',
+                    dataKey: 'rowKey',
                     responsiveLayout: 'scroll'
                 }, {
                     default: () => [
-                        h(Column, { field: 'name', header: 'Procedimento' }),
-                        h(Column, { field: 'quantity', header: 'Qtd.', style: 'width: 6rem' }),
                         h(Column, {
-                            field: 'value',
-                            header: 'Valor Unitario',
-                            style: 'width: 10rem'
+                            field: 'procedureIdText',
+                            header: 'ID Procedimento',
+                            style: 'width: 11rem'
                         }, {
-                            body: ({ data }: { data: QuotationProcedure }) => formatCurrency(data.value)
+                            body: ({ data }: { data: QuotationProcedure }) => h(InputText, {
+                                modelValue: data.procedureIdText,
+                                'onUpdate:modelValue': (value: string) => syncProcedureIdInput(data, value),
+                                placeholder: '#0000000',
+                                class: 'w-full'
+                            })
                         }),
                         h(Column, {
-                            header: 'Subtotal',
+                            field: 'description',
+                            header: 'Descricao',
+                            style: 'min-width: 18rem'
+                        }, {
+                            body: ({ data }: { data: QuotationProcedure }) => h(AutoComplete, {
+                                modelValue: data.description,
+                                'onUpdate:modelValue': (value: ProcedureOption | string | null) => syncProcedureDescriptionInput(data, value),
+                                suggestions: procedureDescriptionSuggestions.value,
+                                optionLabel: 'description',
+                                dropdown: true,
+                                completeOnFocus: true,
+                                forceSelection: false,
+                                virtualScrollerOptions: procedureVirtualScrollerOptions,
+                                fluid: true,
+                                placeholder: 'Buscar procedimento',
+                                onComplete: searchProcedureDescriptions,
+                                onChange: (event: { value: ProcedureOption | string | null }) => syncProcedureDescriptionInput(data, event.value),
+                                onItemSelect: (event: { value: ProcedureOption }) => applyProcedureToRow(data, event.value)
+                            })
+                        }),
+                        h(Column, {
+                            field: 'value',
+                            header: 'Valor',
                             style: 'width: 10rem'
                         }, {
-                            body: ({ data }: { data: QuotationProcedure }) => formatCurrency(data.value * data.quantity)
+                            body: ({ data }: { data: QuotationProcedure }) => h('span', { class: 'quotation-procedure-readonly-field' }, data.procedureId ? formatCurrency(data.value) : '')
+                        }),
+                        h(Column, {
+                            field: 'classification',
+                            header: 'Classificacao',
+                            style: 'width: 12rem'
+                        }, {
+                            body: ({ data }: { data: QuotationProcedure }) => h('span', { class: 'quotation-procedure-readonly-field' }, data.classification)
+                        }),
+                        h(Column, {
+                            header: '',
+                            style: 'width: 4rem'
+                        }, {
+                            body: ({ data }: { data: QuotationProcedure }) => h('div', { class: 'quotation-procedure-action' }, [
+                                h(Button, {
+                                    icon: 'pi pi-trash',
+                                    variant: 'outlined',
+                                    rounded: true,
+                                    severity: 'danger',
+                                    size: 'small',
+                                    onClick: () => removeProcedureRow(data)
+                                })
+                            ])
                         })
                     ]
                 })
                 : h('div', { class: 'quotation-procedures-empty' }, [
                     h('i', { class: 'pi pi-list text-2xl text-[var(--p-surface-400)]' }),
-                    h('span', null, 'Nenhum procedimento adicionado a este orcamento.')
+                    h('span', null, 'Nenhum procedimento adicionado a este orçamento.')
                 ])
         ]);
     }
@@ -432,6 +497,17 @@ const toPatientOption = (patient: ApiPatient): PatientOption => ({
     cpf: formatCpf(patient.document)
 });
 
+const formatProcedureDisplayId = (id?: number | null) => id ? `#${id.toString().padStart(7, '0')}` : '';
+const normalizeProcedureId = (value?: string | number | null) => String(value ?? '').replace(/\D/g, '');
+
+const toProcedureOption = (procedure: ApiProcedure): ProcedureOption => ({
+    id: procedure.id ?? null,
+    displayId: formatProcedureDisplayId(procedure.id),
+    description: procedure.name ?? '',
+    value: procedure.value ?? 0,
+    classification: procedure.type ?? ''
+});
+
 const loadPatients = async () => {
     try {
         const patients = await PatientService.list();
@@ -443,6 +519,24 @@ const loadPatients = async () => {
             severity: 'error',
             summary: 'Erro',
             detail: getPatientServiceErrorMessage(error),
+            life: 5000
+        });
+    }
+};
+
+const loadProcedures = async () => {
+    try {
+        const procedures = await ProcedureService.list();
+        registeredProcedures.value = procedures
+            .filter(procedure => procedure.statusCode !== 1)
+            .map(toProcedureOption)
+            .filter(procedure => procedure.id || procedure.description);
+        procedureDescriptionSuggestions.value = registeredProcedures.value;
+    } catch (error: unknown) {
+        toast.add({
+            severity: 'error',
+            summary: 'Erro',
+            detail: getProcedureServiceErrorMessage(error),
             life: 5000
         });
     }
@@ -522,6 +616,120 @@ const syncSelectedPatient = () => {
     selectedPatient.value = selected ?? currentQuotation.value.patientName;
 };
 
+const getEmptyQuotationProcedure = (): QuotationProcedure => ({
+    rowKey: `procedure-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    procedureId: null,
+    procedureIdText: '',
+    description: '',
+    value: 0,
+    classification: ''
+});
+
+const updateQuotationTotalFromProcedures = () => {
+    currentQuotation.value.totalValue = currentQuotation.value.procedures.reduce((acc, procedure) => acc + (procedure.value ?? 0), 0);
+};
+
+const addProcedureRow = () => {
+    currentQuotation.value.procedures.push(getEmptyQuotationProcedure());
+};
+
+const removeProcedureRow = (procedure: QuotationProcedure) => {
+    currentQuotation.value.procedures = currentQuotation.value.procedures.filter(item => item.rowKey !== procedure.rowKey);
+    updateQuotationTotalFromProcedures();
+};
+
+const clearProcedureRow = (row: QuotationProcedure) => {
+    row.procedureId = null;
+    row.procedureIdText = '';
+    row.description = '';
+    row.value = 0;
+    row.classification = '';
+    updateQuotationTotalFromProcedures();
+};
+
+const applyProcedureToRow = (row: QuotationProcedure, procedure: ProcedureOption) => {
+    row.procedureId = procedure.id;
+    row.procedureIdText = procedure.displayId;
+    row.description = procedure.description;
+    row.value = procedure.value;
+    row.classification = procedure.classification;
+    updateQuotationTotalFromProcedures();
+};
+
+const findProcedureById = (value: string) => {
+    const digits = normalizeProcedureId(value);
+    if (!digits) return null;
+
+    return registeredProcedures.value.find(procedure => normalizeProcedureId(procedure.displayId) === digits || String(procedure.id ?? '') === digits) ?? null;
+};
+
+const findProcedureByDescription = (value: string) => {
+    const query = value.trim().toLowerCase();
+    if (!query) return null;
+
+    return registeredProcedures.value.find(procedure => procedure.description.toLowerCase() === query) ?? null;
+};
+
+const syncProcedureIdInput = (row: QuotationProcedure, value: string | null) => {
+    const nextValue = value ?? '';
+    row.procedureIdText = nextValue;
+
+    if (!normalizeProcedureId(nextValue)) {
+        clearProcedureRow(row);
+        return;
+    }
+
+    const procedure = findProcedureById(nextValue);
+    if (procedure) {
+        applyProcedureToRow(row, procedure);
+        return;
+    }
+
+    row.procedureId = null;
+    row.description = '';
+    row.value = 0;
+    row.classification = '';
+    updateQuotationTotalFromProcedures();
+};
+
+const syncProcedureDescriptionInput = (row: QuotationProcedure, value: ProcedureOption | string | null) => {
+    if (value && typeof value === 'object') {
+        applyProcedureToRow(row, value);
+        return;
+    }
+
+    const nextValue = value ?? '';
+    row.description = nextValue;
+
+    if (!nextValue.trim()) {
+        clearProcedureRow(row);
+        return;
+    }
+
+    const procedure = findProcedureByDescription(nextValue);
+    if (procedure) {
+        applyProcedureToRow(row, procedure);
+        return;
+    }
+
+    row.procedureId = null;
+    row.procedureIdText = '';
+    row.value = 0;
+    row.classification = '';
+    updateQuotationTotalFromProcedures();
+};
+
+const searchProcedureDescriptions = (event: { query: string }) => {
+    const query = event.query?.trim().toLowerCase() ?? '';
+    const queryId = normalizeProcedureId(query);
+
+    procedureDescriptionSuggestions.value = registeredProcedures.value.filter(procedure => {
+        const description = procedure.description.toLowerCase();
+        const id = normalizeProcedureId(procedure.displayId);
+        return !query || description.includes(query) || (queryId && id.includes(queryId));
+    });
+};
+
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -533,6 +741,148 @@ const formatDate = (dateString: string) => {
     if (!dateString) return '';
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
+};
+
+const sanitizePdfText = (value: string) => value
+    .normalize('NFC')
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/[^\x09\x0A\x0D\x20-\x7EÀ-ÿ]/g, '?')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+const toPdfBytes = (value: string) => Uint8Array.from(Array.from(value, char => char.charCodeAt(0) <= 255 ? char.charCodeAt(0) : 63));
+
+const wrapPdfText = (value: string, maxLength: number) => {
+    const words = value.split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let currentLine = '';
+
+    words.forEach(word => {
+        const nextLine = currentLine ? `${currentLine} ${word}` : word;
+
+        if (nextLine.length <= maxLength) {
+            currentLine = nextLine;
+            return;
+        }
+
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+    });
+
+    if (currentLine) lines.push(currentLine);
+    return lines.length ? lines : [''];
+};
+
+const createQuotationPdfBlob = (quotation: Quotation) => {
+    const pageWidth = 595;
+    const top = 790;
+    const left = 50;
+    const bottom = 60;
+    const pages: string[] = [];
+    let lines: string[] = [];
+    let y = top;
+
+    const addPage = () => {
+        if (lines.length) pages.push(lines.join('\n'));
+        lines = [];
+        y = top;
+    };
+
+    const addText = (text: string, x = left, size = 10, font = 'F1') => {
+        if (y < bottom) addPage();
+        lines.push(`BT /${font} ${size} Tf ${x} ${y} Td (${sanitizePdfText(text)}) Tj ET`);
+        y -= size + 6;
+    };
+
+    const addWrappedText = (text: string, x = left, size = 10, maxLength = 78) => {
+        wrapPdfText(text, maxLength).forEach(line => addText(line, x, size));
+    };
+
+    const addRule = () => {
+        if (y < bottom) addPage();
+        lines.push(`${left} ${y} m ${pageWidth - left} ${y} l S`);
+        y -= 14;
+    };
+
+    addText('Orçamento', left, 18, 'F2');
+    addText(`Código: ${quotation.id || 'Novo orçamento'}`, left, 11, 'F2');
+    addRule();
+    addText(`Paciente: ${quotation.patientName || '-'}`);
+    addText(`CPF: ${quotation.patientCpf || '-'}`);
+    addText(`Status: ${quotation.status}`);
+    addText(`Data de geração: ${formatDate(quotation.generationDate) || '-'}`);
+    addText(`Valor total: ${formatCurrency(quotation.totalValue)}`, left, 11, 'F2');
+    y -= 8;
+    addText('Procedimentos', left, 13, 'F2');
+    addRule();
+
+    if (quotation.procedures.length) {
+        quotation.procedures.forEach((procedure, index) => {
+            addText(`${index + 1}. ${procedure.procedureIdText || '-'} - ${procedure.description || '-'}`, left, 10, 'F2');
+            addWrappedText(`Classificação: ${procedure.classification || '-'}`, left + 14, 10, 74);
+            addText(`Valor: ${formatCurrency(procedure.value || 0)}`, left + 14);
+            y -= 4;
+        });
+    } else {
+        addText('Nenhum procedimento adicionado.');
+    }
+
+    y -= 8;
+    addRule();
+    addText(`Total do orçamento: ${formatCurrency(quotation.totalValue)}`, left, 12, 'F2');
+    if (lines.length) pages.push(lines.join('\n'));
+
+    const pageCount = pages.length;
+    const fontRegularObjectNumber = 3 + pageCount * 2;
+    const fontBoldObjectNumber = fontRegularObjectNumber + 1;
+    const objects: string[] = [
+        '<< /Type /Catalog /Pages 2 0 R >>',
+        `<< /Type /Pages /Kids [${pages.map((_, index) => `${3 + index * 2} 0 R`).join(' ')}] /Count ${pageCount} >>`
+    ];
+
+    pages.forEach((content, index) => {
+        const pageObjectNumber = 3 + index * 2;
+        const contentObjectNumber = pageObjectNumber + 1;
+        const streamContent = `${content}\n`;
+        objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} 842] /Resources << /Font << /F1 ${fontRegularObjectNumber} 0 R /F2 ${fontBoldObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`);
+        objects.push(`<< /Length ${toPdfBytes(streamContent).length} >>\nstream\n${streamContent}endstream`);
+    });
+
+    objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+
+    let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+    const offsets = [0];
+
+    objects.forEach((object, index) => {
+        offsets.push(toPdfBytes(pdf).length);
+        pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    });
+
+    const xrefOffset = toPdfBytes(pdf).length;
+    pdf += `xref\n0 ${objects.length + 1}\n`;
+    pdf += '0000000000 65535 f \n';
+    offsets.slice(1).forEach(offset => {
+        pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    });
+    pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+    return new Blob([toPdfBytes(pdf)], { type: 'application/pdf' });
+};
+
+const downloadQuotationPdf = (quotation: Quotation) => {
+    const blob = createQuotationPdfBlob(quotation);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeId = (quotation.id || 'orcamento').replace(/[^\w-]/g, '');
+
+    link.href = url;
+    link.download = `${safeId || 'orcamento'}-${quotation.patientName || 'paciente'}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 };
 
 const getStatusStyle = (status: string) => {
@@ -582,12 +932,12 @@ const onRowContextMenu = (event: any) => {
     if (contextMenuSelection.value.status === 'Pendente') {
         menuItems.value = [
             {
-                label: 'Aprovar orcamento',
+                label: 'Aprovar orçamento',
                 icon: 'pi pi-check',
                 command: () => approveQuotation()
             },
             {
-                label: 'Rejeitar orcamento',
+                label: 'Rejeitar orçamento',
                 icon: 'pi pi-times',
                 class: 'text-[var(--p-primary-1010)]',
                 command: () => rejectQuotation()
@@ -597,7 +947,7 @@ const onRowContextMenu = (event: any) => {
     } else if (contextMenuSelection.value.status === 'Inativo') {
         menuItems.value = [
             {
-                label: 'Reativar orcamento',
+                label: 'Reativar orçamento',
                 icon: 'pi pi-refresh',
                 command: () => reactivateQuotation()
             },
@@ -615,6 +965,7 @@ const openAddDialog = () => {
     currentQuotation.value = getEmptyQuotation();
     selectedPatient.value = null;
     patientSuggestions.value = registeredPatients.value;
+    procedureDescriptionSuggestions.value = registeredProcedures.value;
     submitted.value = false;
     addDialogVisible.value = true;
 };
@@ -629,6 +980,10 @@ const saveAddedQuotation = () => {
     syncPatientName({ value: selectedPatient.value });
 
     if (currentQuotation.value.patientName?.trim()) {
+        if (currentQuotation.value.procedures.length > 0) {
+            updateQuotationTotalFromProcedures();
+        }
+
         currentQuotation.value.id = '#' + Math.floor(Math.random() * 1000000).toString().padStart(7, '0');
 
         const today = new Date();
@@ -647,6 +1002,7 @@ const saveAddedQuotation = () => {
 const openEditDialog = (quotation: Quotation) => {
     currentQuotation.value = JSON.parse(JSON.stringify(quotation));
     syncSelectedPatient();
+    procedureDescriptionSuggestions.value = registeredProcedures.value;
     submitted.value = false;
     editDialogVisible.value = true;
 };
@@ -662,7 +1018,7 @@ const saveEditedQuotation = () => {
 
     if (currentQuotation.value.patientName?.trim()) {
         if (currentQuotation.value.procedures.length > 0) {
-            currentQuotation.value.totalValue = currentQuotation.value.procedures.reduce((acc, proc) => acc + (proc.value * proc.quantity), 0);
+            updateQuotationTotalFromProcedures();
         }
 
         const index = quotationsMock.value.findIndex(q => q.id === currentQuotation.value.id);
@@ -696,5 +1052,8 @@ const rowClass = (data: Quotation) => {
     return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
 };
 
-onMounted(loadPatients);
+onMounted(() => {
+    void loadPatients();
+    void loadProcedures();
+});
 </script>

@@ -75,7 +75,7 @@
     >
       <div class="app-dialog-body app-dialog-section">
         <span class="text-slate-600 text-sm">
-          Informe o seu e-mail de cadastro. Enviaremos as instrucoes para voce criar uma nova senha.
+          Informe o seu e-mail de cadastro. Enviaremos as instruções para você criar uma nova senha.
         </span>
 
         <div class="app-field">
@@ -92,7 +92,7 @@
             class="w-full"
           />
           <small v-if="recoverySubmitted && !recoveryEmail" class="app-field-error">
-            Por favor, informe um e-mail valido.
+            Por favor, informe um e-mail válido.
           </small>
         </div>
       </div>
@@ -141,15 +141,15 @@ const validateForm = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!username.value.trim()) {
-    errors.value.username = 'O campo email e obrigatorio.';
+    errors.value.username = 'O campo email e obrigatório.';
     isValid = false;
   } else if (!emailRegex.test(username.value)) {
-    errors.value.username = 'Por favor, insira um e-mail valido.';
+    errors.value.username = 'Por favor, insira um e-mail válido.';
     isValid = false;
   }
 
   if (!password.value) {
-    errors.value.password = 'O campo senha e obrigatorio.';
+    errors.value.password = 'O campo senha e obrigatório.';
     isValid = false;
   }
 
@@ -170,8 +170,8 @@ const handleLogin = async () => {
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Erro de Autenticacao',
-        detail: result.mensagem || 'Nao foi possivel realizar o login.',
+        summary: 'Erro de Autenticação',
+        detail: result.mensagem || 'Não foi possível realizar o login.',
         life: 5000
       });
     }
@@ -210,14 +210,14 @@ const sendRecoveryEmail = async () => {
     toast.add({
       severity: 'success',
       summary: 'E-mail enviado',
-      detail: 'As instrucoes de recuperacao foram enviadas para seu e-mail.',
+      detail: 'As instruções de recuperação foram enviadas para seu e-mail.',
       life: 5000
     });
   } catch (error: unknown) {
     toast.add({
       severity: 'error',
       summary: 'Erro',
-      detail: 'Nao foi possivel enviar o e-mail de recuperacao.',
+      detail: 'Nao foi possivel enviar o e-mail de recuperação.',
       life: 5000
     });
   } finally {

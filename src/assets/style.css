@@ -136,6 +136,14 @@ body {
     line-height: 1;
 }
 
+.quotation-general-accordion .p-accordionheader {
+    padding-top: 0;
+}
+
+.quotation-general-accordion .p-accordioncontent-content {
+    padding-bottom: 24px;
+}
+
 .quotation-procedures-section {
     background-color: var(--p-surface-100);
     border: 1px solid var(--p-surface-300);
@@ -166,6 +174,45 @@ body {
     min-height: 7rem;
     padding: 1.25rem;
     text-align: center;
+}
+
+.quotation-procedures-table {
+    border: 1px solid var(--p-surface-200);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.quotation-procedures-table .p-datatable-thead > tr > th,
+.quotation-procedures-table .p-datatable-tbody > tr > td {
+    background-color: var(--p-surface-0);
+    border-bottom: 1px solid var(--p-surface-200);
+    padding: 0.75rem;
+    vertical-align: top;
+}
+
+.quotation-procedures-table .p-autocomplete,
+.quotation-procedures-table .p-inputnumber,
+.quotation-procedures-table .p-inputtext {
+    width: 100%;
+}
+
+.quotation-procedure-readonly-field {
+    align-items: center;
+    background-color: var(--p-surface-100);
+    border: 1px solid var(--p-surface-200);
+    border-radius: var(--p-form-field-border-radius);
+    color: var(--p-surface-700);
+    display: flex;
+    min-height: 2.625rem;
+    padding: 0.5rem 0.75rem;
+    width: 100%;
+}
+
+.quotation-procedure-action {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    min-height: 2.625rem;
 }
 
 @media (max-width: 640px) {

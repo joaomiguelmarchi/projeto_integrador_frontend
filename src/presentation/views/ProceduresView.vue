@@ -85,9 +85,9 @@
                         </template>
                     </Column>
 
-                    <Column field="description" header="Descricao" :showFilterMenu="false">
+                    <Column field="description" header="Descrição" :showFilterMenu="false">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Descricao" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Descrição" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
                         </template>
                     </Column>
 
@@ -100,7 +100,7 @@
                         </template>
                     </Column>
 
-                    <Column field="category" header="Classificacao" :showFilterMenu="false" style="width: 12rem">
+                    <Column field="category" header="Classificação" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
                             <Select
                                 v-model="filterModel.value"
@@ -131,21 +131,21 @@
     <Dialog v-model:visible="addDialogVisible" :style="{ width: '550px' }" header="Adicionar Procedimento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <div class="app-field">
-                <label for="add-description" class="app-field-label">Descricao<span class="app-required-mark">*</span></label>
+                <label for="add-description" class="app-field-label">Descricão<span class="app-required-mark">*</span></label>
                 <InputText id="add-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricao é obrigatoria.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricão é obrigatória.</small>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="app-field">
                     <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
                     <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatorio.</small>
+                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
                 </div>
                 <div class="app-field">
-                    <label for="add-category" class="app-field-label">Classificacao<span class="app-required-mark">*</span></label>
+                    <label for="add-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
                     <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A categoria é obrigatoria.</small>
+                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatória.</small>
                 </div>
             </div>
         </div>
@@ -159,21 +159,21 @@
     <Dialog v-model:visible="editDialogVisible" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <div class="app-field">
-                <label for="edit-description" class="app-field-label">Descricao<span class="app-required-mark">*</span></label>
+                <label for="edit-description" class="app-field-label">Descricão<span class="app-required-mark">*</span></label>
                 <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricao e obrigatoria.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricão é obrigatória.</small>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="app-field">
                     <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
                     <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatorio.</small>
+                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
                 </div>
                 <div class="app-field">
-                    <label for="add-category" class="app-field-label">Classificacao<span class="app-required-mark">*</span></label>
+                    <label for="add-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
                     <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A categoria é obrigatoria.</small>
+                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatoria.</small>
                 </div>
             </div>
         </div>
@@ -184,11 +184,11 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusao" :modal="true" class="app-dialog">
+    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
-                <span v-if="currentProcedure">Voce tem certeza que quer inativar <b>{{ currentProcedure.description }}</b>?</span>
+                <span v-if="currentProcedure">Você tem certeza que deseja inativar <b>{{ currentProcedure.description }}</b>?</span>
             </div>
         </div>
         <template #footer>
@@ -225,7 +225,7 @@ interface Procedure {
     category: string;
 }
 
-const categories = ref(['Prevencao', 'Dentistica', 'Clareamento', 'Endodontia', 'Periodontia', 'Cirurgia', 'Protese', 'Radiologia', 'Ortodontia', 'Implantes']);
+const categories = ref(['Prevenção', 'Dentística', 'Clareamento', 'Endodontia', 'Periodontia', 'Cirurgia', 'Prótese', 'Radiologia', 'Ortodontia', 'Implantes']);
 const toast = useToast();
 const procedures = ref<Procedure[]>([]);
 const loading = ref(false);

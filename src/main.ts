@@ -18,9 +18,9 @@ const SmileHubPreset = definePreset(Aura, {
         colorScheme: {
             light: {
                 surface: {
-                    0: '#fbfbf3', 
+                    0: '#f9f9f2', 
                     50: '#f8fafc', 
-                    100: '#f1f5f9', 
+                    100: '#eaeff3', 
                     200: '#e2e8f0', 
                     300: '#cbd5e1',
                     400: '#94a3b8', 
