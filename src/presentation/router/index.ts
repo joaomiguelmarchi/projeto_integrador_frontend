@@ -5,6 +5,7 @@ import ProceduresView from '../views/ProceduresView.vue'
 import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
+import AttendanceView from '../views/AttendanceView.vue'
 import { AuthService } from '../../infrastructure/services/AuthService'
 
 const routes = [
@@ -26,7 +27,7 @@ const routes = [
     path: '/inicio',
     name: 'inicio',
     component: HomeView,
-    meta: { requiresAuth: true } 
+    meta: { requiresAuth: false } 
   },
   {
     path: '/procedimentos',
@@ -43,15 +44,21 @@ const routes = [
   {
     path: '/orcamento',
     name: 'orcamento',
-    component: QuotationView,
-    meta: { requiresAuth: true }
+    component: QuotationView
+  },
+   {
+    path: '/atendimento',
+    name: 'atendimento',
+    component: AttendanceView
   }
+
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
 
 router.beforeEach((to, _from, next) => {
   
@@ -68,3 +75,4 @@ router.beforeEach((to, _from, next) => {
 })
 
 export default router
+

@@ -59,7 +59,7 @@ const modules = ref([
   { title: 'Cadastro de Paciente', icon: 'pi-users', route: '/cadastroPaciente' },
   { title: 'Conta Paciente', icon: 'pi-folder', route: '/patientAcount' },
   { title: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
-  { title: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
+  { title: 'Atendimento', icon: 'pi-calendar', route: '/atendimento' },
   { title: 'Faturamento', icon: 'pi-receipt', route: '/billing' },
   { title: 'Procedimentos', icon: 'pi-list', route: '/procedimentos' }
 ])
