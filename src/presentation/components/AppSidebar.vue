@@ -56,7 +56,7 @@ const menuItems: MenuItem[] = [
   { label: 'Cadastro de Paciente', icon: 'pi-users', route: '/cadastroPaciente' },
   { label: 'Conta Paciente', icon: 'pi-folder' },
   { label: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
-  { label: 'Agenda', icon: 'pi-calendar' },
+  { label: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
   { label: 'Faturamento', icon: 'pi-receipt' },
   { label: 'Procedimentos', icon: 'pi-list', route: '/procedimentos' },
   { label: 'Configurações', icon: 'pi-cog', spacer: true }
