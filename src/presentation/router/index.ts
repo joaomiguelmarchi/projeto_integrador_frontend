@@ -5,6 +5,7 @@ import ProceduresView from '../views/ProceduresView.vue'
 import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
+import ScheduleView from '../views/ScheduleView.vue'
 import { AuthService } from '../../infrastructure/services/AuthService'
 
 const routes = [
@@ -44,6 +45,12 @@ const routes = [
     path: '/orcamento',
     name: 'orcamento',
     component: QuotationView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/schedule',
+    name: 'schedule',
+    component: ScheduleView,
     meta: { requiresAuth: true }
   }
 ]
