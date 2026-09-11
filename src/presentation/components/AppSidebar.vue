@@ -54,7 +54,7 @@ const router = useRouter()
 const menuItems: MenuItem[] = [
   { label: 'Início', icon: 'pi-home', route: '/inicio' },
   { label: 'Cadastro de Paciente', icon: 'pi-users', route: '/cadastroPaciente' },
-  { label: 'Conta Paciente', icon: 'pi-folder' },
+  { label: 'Prontuário', icon: 'pi-folder', route: '/prontuarioPaciente' },
   { label: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
   { label: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
   { label: 'Faturamento', icon: 'pi-receipt' },

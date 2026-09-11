@@ -6,6 +6,7 @@ import PatientRegistrationView from '../views/PatientRegistrationView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
 import ScheduleView from '../views/ScheduleView.vue'
+import PatientRecordView from '../views/PatientRecordView.vue'
 import { AuthService } from '../../infrastructure/services/AuthService'
 
 const routes = [
@@ -39,6 +40,12 @@ const routes = [
     path: '/cadastroPaciente',
     name: 'cadastroPaciente',
     component: PatientRegistrationView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/prontuarioPaciente',
+    name: 'prontuarioPaciente',
+    component: PatientRecordView,
     meta: { requiresAuth: true }
   },
   {
