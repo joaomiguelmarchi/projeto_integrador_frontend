@@ -57,7 +57,7 @@ import { AuthService } from '../../infrastructure/services/AuthService'
 const router = useRouter()
 const modules = ref([
   { title: 'Cadastro de Paciente', icon: 'pi-users', route: '/cadastroPaciente' },
-  { title: 'Conta Paciente', icon: 'pi-folder', route: '/patientAcount' },
+  { title: 'Prontuário', icon: 'pi-folder', route: '/prontuarioPaciente' },
   { title: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
   { title: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
   { title: 'Faturamento', icon: 'pi-receipt', route: '/billing' },
