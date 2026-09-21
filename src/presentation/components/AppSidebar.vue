@@ -57,7 +57,7 @@ const menuItems: MenuItem[] = [
   { label: 'Prontuário', icon: 'pi-folder', route: '/prontuarioPaciente' },
   { label: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
   { label: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
-  { label: 'Faturamento', icon: 'pi-receipt' },
+  { label: 'Faturamento', icon: 'pi-receipt', route: '/faturamento' },
   { label: 'Procedimentos', icon: 'pi-list', route: '/procedimentos' },
   { label: 'Configurações', icon: 'pi-cog', spacer: true }
 ]

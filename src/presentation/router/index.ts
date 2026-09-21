@@ -7,9 +7,17 @@ import ResetPasswordView from '../views/ResetPasswordView.vue'
 import QuotationView from '../views/QuotationView.vue'
 import ScheduleView from '../views/ScheduleView.vue'
 import PatientRecordView from '../views/PatientRecordView.vue'
+import BillingView from '../views/BillingView.vue'
 import { AuthService } from '../../infrastructure/services/AuthService'
 
 const routes = [
+  {
+    path: '/faturamento',
+    alias: '/billing',
+    name: 'faturamento',
+    component: BillingView,
+    meta: { requiresAuth: true }
+  },
   {
     path: '/',
     redirect: '/login'

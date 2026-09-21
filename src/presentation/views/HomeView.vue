@@ -60,7 +60,7 @@ const modules = ref([
   { title: 'Prontuário', icon: 'pi-folder', route: '/prontuarioPaciente' },
   { title: 'Orçamento', icon: 'pi-dollar', route: '/orcamento' },
   { title: 'Agenda', icon: 'pi-calendar', route: '/schedule' },
-  { title: 'Faturamento', icon: 'pi-receipt', route: '/billing' },
+  { title: 'Faturamento', icon: 'pi-receipt', route: '/faturamento' },
   { title: 'Procedimentos', icon: 'pi-list', route: '/procedimentos' }
 ])
 
