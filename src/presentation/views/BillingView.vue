@@ -1,9 +1,7 @@
 <template>
   <AppLayout title="Faturamento">
     <div class="billing-page bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
-      <div class="flex flex-col gap-3 p-5 border-b border-[var(--p-surface-200)] sm:flex-row sm:items-center sm:justify-between">
-        <IconField><InputIcon class="flex items-center"><i class="pi pi-search text-[var(--p-surface-400)]" /></InputIcon><InputText v-model="search" aria-label="Pesquisar globalmente" placeholder="Pesquisar" class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-full sm:w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow" /></IconField>
-      </div>
+      <AppTableToolbar v-model="search" placeholder="Pesquisar contas ou pacientes" :has-filters="!!search || [...Object.values(accountFilters), ...Object.values(debtorFilters)].some(filter => !!filter.value)" @clear="clearFilters" />
       <Tabs value="accounts" class="patient-record-tabs">
         <TabList>
           <Tab value="accounts"><span class="patient-record-tab-label"><i class="pi pi-receipt" />Faturamento</span></Tab>
@@ -11,15 +9,15 @@
         </TabList>
         <TabPanels class="patient-record-tab-panels !p-0">
           <TabPanel value="accounts" class="patient-record-tab-panel">
-            <DataTable v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first} - {last} de {totalRecords}">
-              <template #empty><div class="app-table-empty-state flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]"><i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]" /><p class="font-medium text-[var(--p-surface-500)]">Nenhuma conta encontrada.</p></div></template>
+            <DataTable v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
+              <template #empty><AppEmptyState title="Nenhuma conta encontrada." /></template>
               <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem"><template #body="{ data }"><div class="flex justify-left w-full pl-2"><AppStatusBadge :value="data.status" /></div></template><template #filter="{ filterModel, filterCallback }"><Select v-model="filterModel.value" @change="filterCallback()" :options="statuses" showClear placeholder="Todos" aria-label="Status da conta" class="w-full h-[36px] text-sm" /></template></Column>
               <Column field="id" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="patientName" header="Paciente" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar paciente" aria-label="Buscar paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="generationLabel" header="Data geração" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar data" aria-label="Buscar data" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column field="totalLabel" header="Valor total" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor" aria-label="Buscar valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 10rem; min-width: 10rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" aria-label="Detalhes da conta" v-tooltip.top="'Detalhes da conta'" variant="outlined" rounded size="small" @click="openAccount(data)" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
+              <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="totalLabel" header="Valor total" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor" aria-label="Buscar valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 10rem; min-width: 10rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" aria-label="Detalhes da conta" v-tooltip.top="'Detalhes da conta'" variant="outlined" rounded size="small" @click="openAccount(data)" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
             </DataTable>
           </TabPanel>
           <TabPanel value="debtors" class="patient-record-tab-panel">
@@ -51,29 +49,29 @@
                 <span class="billing-metric-caption">{{ currency(debtorBalance - totalOverdue) }} a vencer</span>
               </article>
             </section>
-            <DataTable v-model:filters="debtorFilters" filterDisplay="row" :rowsPerPageOptions="[5, 10, 20]" :value="filteredDebtors" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" scrollable paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first} - {last} de {totalRecords}">
-              <template #empty><div class="app-table-empty-state flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]"><i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]" /><p class="font-medium text-[var(--p-surface-500)]">Nenhuma conta vencida encontrada.</p></div></template>
+            <DataTable v-model:filters="debtorFilters" filterDisplay="row" :rowsPerPageOptions="[5, 10, 20]" :value="filteredDebtors" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
+              <template #empty><AppEmptyState title="Nenhuma conta vencida encontrada." /></template>
               <Column field="patientName" header="Paciente" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar paciente" aria-label="Buscar paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="id" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="phone" header="Telefone" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar telefone" aria-label="Buscar telefone" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="dueLabel" header="Data vencimento" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar vencimento" aria-label="Buscar vencimento" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column field="overdueLabel" header="Valor vencido" :showFilterMenu="false"><template #body="{ data }"><strong class="billing-overdue">{{ data.overdueLabel }}</strong></template><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor vencido" aria-label="Buscar valor vencido" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 12rem; min-width: 12rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" variant="outlined" rounded size="small" aria-label="Detalhes da conta" @click="openAccount(data)" /><Button aria-label="Cobrança" v-tooltip.top="'Cobrança'" icon="pi pi-comment" variant="outlined" rounded size="small" @click="collectionAccount = data" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
+              <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="overdueLabel" header="Valor vencido" :showFilterMenu="false"><template #body="{ data }"><strong class="billing-overdue">{{ data.overdueLabel }}</strong></template><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor vencido" aria-label="Buscar valor vencido" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 12rem; min-width: 12rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" variant="outlined" rounded size="small" aria-label="Detalhes da conta" @click="openAccount(data)" /><Button aria-label="Cobrança" v-tooltip.top="'Cobrança'" icon="pi pi-comment" variant="outlined" rounded size="small" @click="collectionAccount = data" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
             </DataTable>
           </TabPanel>
         </TabPanels>
       </Tabs>
     </div>
   </AppLayout>
-  <Dialog :visible="!!accountToDeactivate" @update:visible="accountToDeactivate = null" header="Confirmar Exclusão" modal class="app-dialog" :style="{ width: '450px', maxWidth: '95vw' }">
+  <Dialog :draggable="false" :visible="!!accountToDeactivate" @update:visible="accountToDeactivate = null" header="Confirmar inativação" modal class="app-dialog" :style="{ width: '450px', maxWidth: '95vw' }">
     <div class="app-confirm-body">
       <i class="pi pi-exclamation-triangle app-confirm-icon" />
       <div v-if="accountToDeactivate" class="app-dialog-section"><span>Tem certeza que deseja inativar a conta <b>{{ accountToDeactivate.id }}</b> do paciente <b>{{ accountToDeactivate.patientName }}</b>?</span></div>
     </div>
-    <template #footer><Button label="Não" icon="pi pi-times" text @click="accountToDeactivate = null" /><Button label="Sim" icon="pi pi-check" severity="danger" @click="confirmDeactivate" /></template>
+    <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="accountToDeactivate = null" /><Button label="Inativar" icon="pi pi-check" severity="danger" @click="confirmDeactivate" /></template>
   </Dialog>
-  <Dialog v-model:visible="detailVisible" header="Detalhes da conta" modal class="app-dialog p-fluid" :style="{ width: '980px', maxWidth: '95vw' }">
+  <Dialog :draggable="false" v-model:visible="detailVisible" header="Detalhes da conta" modal class="app-dialog p-fluid" :style="{ width: '1180px', maxWidth: '95vw' }">
     <div v-if="selectedAccount" class="app-dialog-body app-dialog-section">
       <section class="billing-account-summary" aria-label="Identificação da conta">
         <div class="billing-account-patient">
@@ -95,8 +93,8 @@
       <div class="quotation-procedures-header"><h3 class="billing-section-title"><i class="pi pi-list" aria-hidden="true" />Procedimentos</h3><span class="billing-section-caption">{{ selectedAccount.procedures.length }} {{ selectedAccount.procedures.length === 1 ? 'item' : 'itens' }}</span></div>
       <DataTable :value="selectedAccount.procedures" class="quotation-procedures-table" scrollable>
         <Column field="name" header="Procedimento" /><Column field="quantity" header="Quantidade" />
-        <Column header="Valor unitário"><template #body="{ data }">{{ currency(data.unitAmount) }}</template></Column>
-        <Column header="Subtotal"><template #body="{ data }">{{ currency(data.unitAmount * data.quantity) }}</template></Column>
+        <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Valor unitário"><template #body="{ data }">{{ currency(data.unitAmount) }}</template></Column>
+        <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Subtotal"><template #body="{ data }">{{ currency(data.unitAmount * data.quantity) }}</template></Column>
       </DataTable>
       </section>
       <section class="quotation-procedures-section">
@@ -105,22 +103,22 @@
         <Column header="Parcela"><template #body="{ index }">{{ index + 1 }}/{{ selectedAccount.payments.length }}</template></Column>
         <Column header="Status"><template #body="{ data }"><AppStatusBadge :value="data.status" /></template></Column>
         <Column field="dueDate" header="Vencimento"><template #body="{ data }">{{ formatDate(data.dueDate) }}<small v-if="selectedAccount.status !== 'Inativo' && isOverdue(data, today)" class="billing-overdue block">Vencido</small></template></Column>
-        <Column header="Valor"><template #body="{ data }">{{ currency(data.amount) }}</template></Column>
-        <Column :exportable="false" style="min-width: 8rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" aria-label="Registrar pagamento" v-tooltip.top="'Registrar pagamento'" icon="pi pi-check" variant="outlined" rounded size="small" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
+        <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Valor"><template #body="{ data }">{{ currency(data.amount) }}</template></Column>
+        <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" aria-label="Registrar pagamento" v-tooltip.top="'Registrar pagamento'" icon="pi pi-check" variant="outlined" rounded size="small" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
       </DataTable>
       </section>
     </div>
     <template #footer><Button label="Fechar" icon="pi pi-times" text @click="detailVisible = false" /><Button v-if="selectedAccount?.status === 'Pendente'" label="Faturar conta" icon="pi pi-check" @click="invoiceVisible = true" /></template>
   </Dialog>
-  <Dialog :visible="!!paymentToConfirm" @update:visible="paymentToConfirm = null" header="Confirmar recebimento" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
+  <Dialog :draggable="false" :visible="!!paymentToConfirm" @update:visible="paymentToConfirm = null" header="Confirmar recebimento" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
     <div class="app-confirm-body" v-if="paymentToConfirm"><i class="pi pi-exclamation-triangle app-confirm-icon" /><div>Confirma o recebimento de <strong>{{ currency(paymentToConfirm.amount) }}</strong>, referente ao vencimento {{ formatDate(paymentToConfirm.dueDate) }}?</div></div>
     <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="paymentToConfirm = null" /><Button label="Confirmar pagamento" icon="pi pi-check" @click="confirmPayment" /></template>
   </Dialog>
-  <Dialog v-model:visible="invoiceVisible" header="Faturar conta" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
+  <Dialog :draggable="false" v-model:visible="invoiceVisible" header="Faturar conta" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
     <div class="app-confirm-body"><i class="pi pi-exclamation-triangle app-confirm-icon" /><div>Confirma o faturamento da conta {{ selectedAccount?.id }}?</div></div>
     <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="invoiceVisible = false" /><Button label="Confirmar faturamento" icon="pi pi-check" @click="confirmInvoice" /></template>
   </Dialog>
-  <Dialog :visible="!!collectionAccount" @update:visible="collectionAccount = null" header="Cobrança do paciente" modal class="app-dialog" :style="{ width: '580px', maxWidth: '95vw' }">
+  <Dialog :draggable="false" :visible="!!collectionAccount" @update:visible="collectionAccount = null" header="Cobrança do paciente" modal class="app-dialog" :style="{ width: '580px', maxWidth: '95vw' }">
     <div class="app-dialog-body app-dialog-section" v-if="collectionAccount">
       <p><strong>{{ collectionAccount.patientName }}</strong> · {{ collectionAccount.phone }}</p>
       <label for="collection-message" class="app-field-label">Mensagem para cobrança</label>
@@ -132,13 +130,12 @@
 </template>
 
 <script setup lang="ts">
+import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 import Tabs from 'primevue/tabs'
@@ -150,6 +147,7 @@ import AppStatusBadge from '../components/AppStatusBadge.vue'
 import { FilterMatchMode } from '@primevue/core/api'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
+import AppTableToolbar from '../components/AppTableToolbar.vue'
 import AppLayout from '../components/AppLayout.vue'
 import { accountTotal, outstandingTotal, overdueTotal, isOverdue, type AccountStatus, type PatientAccount, type Payment } from '../../core/entities/Billing'
 import { createDemoAccounts } from '../../infrastructure/services/BillingDemo'
@@ -198,7 +196,12 @@ const formatDate = (date: string) => date.split('-').reverse().join('/')
 const columnFilter = () => ({ value: null, matchMode: FilterMatchMode.CONTAINS })
 const accountFilters = ref({ generationLabel: columnFilter(), totalLabel: columnFilter(), balanceLabel: columnFilter(), status: { value: null, matchMode: FilterMatchMode.EQUALS }, id: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS } })
 const debtorFilters = ref({ dueLabel: columnFilter(), overdueLabel: columnFilter(), balanceLabel: columnFilter(), id: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS }, phone: { value: null, matchMode: FilterMatchMode.CONTAINS } })
-const rowClass = (account: PatientAccount) => [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': account.status === 'Inativo' }]
+function clearFilters() {
+  search.value = ''
+  Object.values(accountFilters.value).forEach(filter => filter.value = null)
+  Object.values(debtorFilters.value).forEach(filter => filter.value = null)
+}
+const rowClass = (account: PatientAccount) => [{ 'inactive-row': account.status === 'Inativo' }]
 const oldestDue = (account: PatientAccount) => account.payments.filter(payment => isOverdue(payment, today.value)).map(payment => payment.dueDate).sort()[0] || ''
 function openAccount(account: PatientAccount) {
   selectedAccount.value = accounts.value.find(item => item.id === account.id) ?? null

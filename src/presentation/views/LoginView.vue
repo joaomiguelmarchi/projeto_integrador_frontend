@@ -66,7 +66,7 @@
       </div>
     </div>
 
-    <Dialog
+    <Dialog :draggable="false"
       v-model:visible="forgotDialogVisible"
       :style="{ width: '450px' }"
       header="Recuperar Senha"
