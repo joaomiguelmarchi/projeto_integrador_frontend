@@ -1,27 +1,16 @@
 <template>
     <AppLayout title="Pacientes">
         <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
-            <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
-                <IconField>
-                    <InputIcon class="flex items-center">
-                        <i class="pi pi-search text-[var(--p-surface-400)]" />
-                    </InputIcon>
-                    <InputText
-                        v-model="patientFilters.global.value"
-                        placeholder="Pesquisar"
-                        class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
-                    />
-                </IconField>
+            <AppTableToolbar
+                v-model="patientFilters.global.value"
+                placeholder="Pesquisar pacientes"
+                :has-filters="Object.values(patientFilters).some(filter => !!filter.value)"
+                @clear="Object.values(patientFilters).forEach(filter => filter.value = null)"
+            >
+                <Button size="small" icon="pi pi-plus" label="Novo paciente" @click="openAddDialog" />
+            </AppTableToolbar>
 
-                <Button
-                    icon="pi pi-plus"
-                    label="Adicionar"
-                    class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center !rounded-lg ml-2 shadow-md"
-                    @click="openAddDialog"
-                />
-            </div>
-
-            <div class="flex-1 flex flex-col overflow-hidden px-2 pb-2">
+            <div class="app-table-region flex-1 flex flex-col overflow-hidden px-2 pb-2">
                 <DataTable
                     v-model:filters="patientFilters"
                     v-model:selection="selectedPatient"
@@ -42,14 +31,9 @@
                     :rows="10"
                     :rowsPerPageOptions="[5, 10, 20]"
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
-                    currentPageReportTemplate="{first} - {last} de {totalRecords}"
+                    currentPageReportTemplate="{first}–{last} de {totalRecords} registros"
                 >
-                    <template #empty>
-                        <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
-                            <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum paciente encontrado.</p>
-                        </div>
-                    </template>
+                    <template #empty><AppEmptyState title="Nenhum paciente encontrado." /></template>
 
                     <template #loading>
                         <div class="text-center py-8 text-[var(--p-surface-500)] font-medium flex items-center justify-center gap-3">
@@ -60,19 +44,14 @@
 
                     <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem;">
                         <template #body="{ data }">
-                            <div class="flex justify-left w-full pl-2">
-                                <span class="px-4 py-1.5 rounded-full inline-flex items-center gap-2 border border-[var(--p-surface-300)] bg-[var(--p-surface-0)] text-[var(--p-surface-500)]">
-                                    <span class="w-2.5 h-2.5 rounded-full" :style="data.status === 'Ativo' ? 'background-color: var(--p-primary-1000)' : 'background-color: var(--p-surface-500)'"></span>
-                                    {{ data.status }}
-                                </span>
-                            </div>
+                            <AppStatusBadge :value="data.status" />
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
                             <Select
                                 v-model="filterModel.value"
                                 @change="filterCallback()"
                                 :options="['Ativo', 'Inativo']"
-                                placeholder="Todos"
+                                placeholder="Todos" aria-label="Todos"
                                 class="w-full h-[36px] text-sm bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-md flex items-center"
                                 :showClear="true"
                             />
@@ -81,13 +60,13 @@
 
                     <Column field="displayId" header="ID Paciente" :showFilterMenu="false" style="width: 12rem;">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" aria-label="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="name" header="Nome do Paciente" :showFilterMenu="false">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" aria-label="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
@@ -96,21 +75,21 @@
                             {{ formatCpf(data.cpf) }}
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" aria-label="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="mobilePhone" header="Celular" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" aria-label="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
-                    <Column :exportable="false" style="min-width: 8rem">
+                    <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
-                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeletePatient(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
                     </Column>
@@ -121,7 +100,7 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-form-grid">
             <PatientFormFields
                 :patient="currentPatient"
@@ -137,7 +116,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-form-grid">
             <PatientFormFields
                 :patient="currentPatient"
@@ -153,7 +132,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
+    <Dialog :draggable="false" v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar inativação" :modal="true" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
@@ -161,13 +140,14 @@
             </div>
         </div>
         <template #footer>
-            <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
-            <Button label="Sim" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
+            <Button label="Cancelar" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Inativar" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
 </template>
 
 <script setup lang="ts">
+import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, defineComponent, h, onMounted, ref } from 'vue';
 import type { PropType } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -175,13 +155,13 @@ import Button from 'primevue/button';
 import ContextMenu from 'primevue/contextmenu';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
 import InputMask from 'primevue/inputmask';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import { useToast } from 'primevue/usetoast';
+import AppTableToolbar from '../components/AppTableToolbar.vue';
+import AppStatusBadge from '../components/AppStatusBadge.vue';
 import AppLayout from '../components/AppLayout.vue';
 import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
@@ -266,6 +246,7 @@ const PatientFormFields = defineComponent({
         ]);
 
         return () => [
+            h('h3', { class: 'app-form-section-title' }, 'Dados pessoais'),
             h('div', { class: 'app-field col-span-12 md:col-span-8' }, [
                 label('name', 'Nome Completo', true),
                 h(InputText, {
@@ -299,7 +280,7 @@ const PatientFormFields = defineComponent({
                 class: 'w-full'
             }), required.value.birthDate ? 'A data de nascimento é obrigatória.' : '', true),
             field('gender', 'Sexo', h(Select, {
-                id: `${props.prefix}-gender`,
+                inputId: `${props.prefix}-gender`,
                 modelValue: props.patient.gender,
                 'onUpdate:modelValue': (value: string) => props.patient.gender = value,
                 options: props.genders,
@@ -308,7 +289,7 @@ const PatientFormFields = defineComponent({
                 class: 'w-full'
             }), required.value.gender ? 'O sexo é obrigatório.' : '', true),
             h('div', { class: 'app-field col-span-12' }, [
-                label('responsible', 'Nome do Responsavel'),
+                label('responsible', 'Nome do Responsável'),
                 h(InputText, {
                     id: `${props.prefix}-responsible`,
                     modelValue: props.patient.responsibleName,
@@ -316,6 +297,7 @@ const PatientFormFields = defineComponent({
                     class: 'w-full'
                 })
             ]),
+            h('h3', { class: 'app-form-section-title' }, 'Endereço'),
             field('zip', 'CEP', h(InputMask, {
                 id: `${props.prefix}-zip`,
                 modelValue: props.patient.zipCode,
@@ -349,6 +331,7 @@ const PatientFormFields = defineComponent({
                 invalid: required.value.addressNumber,
                 class: 'w-full'
             }), required.value.addressNumber ? 'O número é obrigatório.' : '', true),
+            h('h3', { class: 'app-form-section-title' }, 'Contato e informações complementares'),
             field('home-phone', 'Telefone Residencial', h(InputMask, {
                 id: `${props.prefix}-home-phone`,
                 modelValue: props.patient.homePhone,
@@ -769,7 +752,7 @@ const reactivatePatient = async () => {
 };
 
 const rowClass = (data: Patient) => {
-    return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
+    return [{ 'inactive-row': data.status === 'Inativo' }];
 };
 
 onMounted(loadPatients);

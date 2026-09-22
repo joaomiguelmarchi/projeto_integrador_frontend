@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --font-family: 'Inter', sans-serif;
+  --font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-family);
 }
 
 .p-component {
@@ -17,53 +18,67 @@ body {
 }
 
 .app-table .p-datatable-thead > tr > th {
-    background-color: transparent;
+    background-color: var(--p-surface-50);
     color: var(--p-surface-600);
     border-bottom: 1px solid var(--p-surface-200);
-    padding: 1rem 0.75rem;
+    padding: 0.95rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .app-table .p-datatable-thead > tr:nth-child(2) > th {
-    padding-top: 1rem;
-    padding-bottom: 1rem;
-    background-color: transparent;
+    padding-top: 0.65rem;
+    padding-bottom: 0.85rem;
+    background-color: var(--p-surface-50);
     border-bottom: 1px solid var(--p-surface-200);
 }
 
 .app-table .p-datatable-thead > tr > th:first-child,
 .app-table .p-datatable-tbody > tr > td:first-child {
-    padding-left: 0;
+    padding-left: 1rem;
 }
 
 .app-table .p-datatable-thead > tr > th:last-child,
 .app-table .p-datatable-tbody > tr > td:last-child {
-    padding-right: 0;
+    padding-right: 1rem;
 }
 
 .app-table .p-datatable-tbody > tr > td {
-    padding: 1rem 0.75rem;
+    padding: 1rem;
     border-bottom: 1px solid var(--p-surface-200);
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .app-dialog {
     border-radius: 1rem;
     overflow: hidden;
     width: min(100%, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+    border: 1px solid var(--p-surface-200);
+    box-shadow: 0 24px 80px rgb(15 23 42 / 22%);
 }
 
 .app-dialog .p-dialog-header {
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
     border-bottom: 1px solid var(--p-surface-200);
+    background: var(--p-surface-50);
+    flex-shrink: 0;
 }
 
 .app-dialog .p-dialog-title {
-    color: var(--p-surface-700);
-    font-size: 1.125rem;
+    color: var(--p-surface-800);
+    font-size: 1.25rem;
     font-weight: 700;
 }
 
 .app-dialog .p-dialog-content {
     padding: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .app-dialog .p-dialog-footer {
@@ -72,10 +87,12 @@ body {
     gap: 0.75rem;
     padding: 1rem 1.5rem;
     border-top: 1px solid var(--p-surface-200);
+    background: var(--p-surface-50);
+    flex-shrink: 0;
 }
 
 .app-dialog-body {
-    padding: 1.5rem;
+    padding: 1.75rem;
 }
 
 .app-dialog-section {
@@ -94,6 +111,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    min-width: 0;
 }
 
 .app-field-label {
@@ -145,8 +163,8 @@ body {
 }
 
 .quotation-procedures-section {
-    background-color: var(--p-surface-100);
-    border: 1px solid var(--p-surface-300);
+    background-color: var(--p-surface-50);
+    border: 1px solid var(--p-surface-200);
     border-radius: 0.75rem;
     display: flex;
     flex-direction: column;

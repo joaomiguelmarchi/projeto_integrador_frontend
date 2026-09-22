@@ -17,7 +17,8 @@
                 <Button
                     icon="pi pi-plus"
                     label="Adicionar atendimento"
-                    class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center justify-center !rounded-lg shadow-md"
+                    size="small"
+                    class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-3 !py-1.5 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center justify-center !rounded-lg shadow-md"
                     @click="openAddDialog"
                 />
             </div>
@@ -40,7 +41,7 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="appointmentDialogVisible" :style="{ width: '980px' }" :header="appointmentDialogTitle" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '1180px' }" :header="appointmentDialogTitle" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <Accordion value="0" class="quotation-general-accordion">
                 <AccordionPanel value="0">
@@ -62,7 +63,7 @@
                             <div class="app-field col-span-12 md:col-span-8">
                                 <label for="appointment-patient" class="app-field-label">Nome paciente<span class="app-required-mark">*</span></label>
                                 <AutoComplete
-                                    id="appointment-patient"
+                                    inputId="appointment-patient"
                                     v-model="selectedPatient"
                                     :suggestions="patientSuggestions"
                                     optionLabel="name"
@@ -107,7 +108,7 @@
                             <div class="app-field col-span-12 md:col-span-4">
                                 <label for="appointment-status" class="app-field-label">Status<span class="app-required-mark">*</span></label>
                                 <Select
-                                    id="appointment-status"
+                                    inputId="appointment-status"
                                     v-model="currentAppointment.status"
                                     :options="statusOptions"
                                     :invalid="submitted && !currentAppointment.status"
@@ -154,7 +155,7 @@
                         </template>
                     </Column>
 
-                    <Column field="description" header="Descricao" style="min-width: 18rem">
+                    <Column field="description" header="Descricao" style="min-width: 24rem">
                         <template #body="{ data }">
                             <AutoComplete
                                 :modelValue="data.description"
@@ -172,7 +173,7 @@
                         </template>
                     </Column>
 
-                    <Column field="value" header="Valor" style="width: 10rem">
+                    <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="value" header="Valor" style="width: 10rem">
                         <template #body="{ data }">
                             <span class="quotation-procedure-readonly-field">{{ data.procedureId ? formatCurrency(data.value) : '' }}</span>
                         </template>
@@ -184,10 +185,10 @@
                         </template>
                     </Column>
 
-                    <Column :exportable="false" style="width: 5rem">
+                    <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="width: 5rem">
                         <template #body="{ data }">
                             <div class="quotation-procedure-action">
-                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="removeProcedureRow(data)" />
+                                <Button aria-label="Remover procedimento" title="Remover procedimento" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="removeProcedureRow(data)" />
                             </div>
                         </template>
                     </Column>

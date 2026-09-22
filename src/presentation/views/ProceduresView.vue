@@ -1,27 +1,16 @@
 <template>
     <AppLayout title="Procedimentos">
         <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
-            <div class="flex justify-between items-center p-5 border-b border-[var(--p-surface-200)]">
-                <IconField>
-                    <InputIcon class="flex items-center">
-                        <i class="pi pi-search text-[var(--p-surface-400)]" />
-                    </InputIcon>
-                    <InputText
-                        v-model="procedureFilters.global.value"
-                        placeholder="Pesquisar"
-                        class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
-                    />
-                </IconField>
+            <AppTableToolbar
+                v-model="procedureFilters.global.value"
+                placeholder="Pesquisar procedimentos"
+                :has-filters="Object.values(procedureFilters).some(filter => !!filter.value)"
+                @clear="Object.values(procedureFilters).forEach(filter => filter.value = null)"
+            >
+                <Button size="small" icon="pi pi-plus" label="Novo procedimento" @click="openAddDialog" />
+            </AppTableToolbar>
 
-                <Button
-                    icon="pi pi-plus"
-                    label="Adicionar"
-                    class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center !rounded-lg ml-2 shadow-md"
-                    @click="openAddDialog"
-                />
-            </div>
-
-            <div class="flex-1 flex flex-col overflow-hidden px-2 pb-2">
+            <div class="app-table-region flex-1 flex flex-col overflow-hidden px-2 pb-2">
                 <DataTable
                     v-model:filters="procedureFilters"
                     v-model:selection="selectedProcedure"
@@ -42,14 +31,9 @@
                     :rows="10"
                     :rowsPerPageOptions="[5, 10, 20]"
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
-                    currentPageReportTemplate="{first} - {last} de {totalRecords}"
+                    currentPageReportTemplate="{first}–{last} de {totalRecords} registros"
                 >
-                    <template #empty>
-                        <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
-                            <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum procedimento encontrado.</p>
-                        </div>
-                    </template>
+                    <template #empty><AppEmptyState title="Nenhum procedimento encontrado." /></template>
 
                     <template #loading>
                         <div class="text-center py-8 text-[var(--p-surface-500)] font-medium flex items-center justify-center gap-3">
@@ -60,19 +44,14 @@
 
                     <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem">
                         <template #body="{ data }">
-                            <div class="flex justify-left w-full pl-2">
-                                <span class="px-4 py-1.5 rounded-full inline-flex items-center gap-2 bg-[var(--p-surface-0)] text-[var(--p-surface-500)] border border-[var(--p-surface-300)]">
-                                    <span class="w-2.5 h-2.5 rounded-full" :style="data.status === 'Ativo' ? 'background-color: var(--p-primary-1000)' : 'background-color: var(--p-surface-500)'"></span>
-                                    {{ data.status }}
-                                </span>
-                            </div>
+                            <AppStatusBadge :value="data.status" />
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
                             <Select
                                 v-model="filterModel.value"
                                 @change="filterCallback()"
                                 :options="['Ativo', 'Inativo']"
-                                placeholder="Todos"
+                                placeholder="Todos" aria-label="Todos"
                                 class="w-full h-[36px] text-sm bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-md flex items-center"
                                 :showClear="true"
                             />
@@ -81,22 +60,22 @@
 
                     <Column field="displayId" header="ID Procedimento" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" aria-label="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="description" header="Descrição" :showFilterMenu="false">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Descrição" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Descrição" aria-label="Buscar Descrição" class="p-column-filter py-1 px-2 text-sm h-[36px]" />
                         </template>
                     </Column>
 
-                    <Column field="price" header="Valor" :showFilterMenu="false" style="width: 12rem">
+                    <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="price" header="Valor" :showFilterMenu="false" style="width: 12rem">
                         <template #body="{ data }">
                             {{ formatCurrency(data.price) }}
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Valor" aria-label="Buscar Valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
@@ -106,18 +85,18 @@
                                 v-model="filterModel.value"
                                 @change="filterCallback()"
                                 :options="categories"
-                                placeholder="Selecione"
+                                placeholder="Selecione" aria-label="Selecione"
                                 class="py-1 px-2 text-sm h-[36px] flex items-center w-full"
                                 :showClear="true"
                             />
                         </template>
                     </Column>
 
-                    <Column :exportable="false" style="min-width: 8rem">
+                    <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
-                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteProcedure(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteProcedure(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
                     </Column>
@@ -128,23 +107,23 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '550px' }" header="Adicionar Procedimento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '680px' }" header="Adicionar Procedimento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <div class="app-field">
-                <label for="add-description" class="app-field-label">Descricão<span class="app-required-mark">*</span></label>
+                <label for="add-description" class="app-field-label">Descrição<span class="app-required-mark">*</span></label>
                 <InputText id="add-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricão é obrigatória.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descrição é obrigatória.</small>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="app-field">
                     <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
-                    <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                    <InputNumber inputId="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
                     <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
                 </div>
                 <div class="app-field">
                     <label for="add-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
-                    <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                    <Select inputId="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
                     <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatória.</small>
                 </div>
             </div>
@@ -156,24 +135,24 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '550px' }" header="Detalhes do Procedimento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '680px' }" header="Detalhes do Procedimento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <div class="app-field">
-                <label for="edit-description" class="app-field-label">Descricão<span class="app-required-mark">*</span></label>
+                <label for="edit-description" class="app-field-label">Descrição<span class="app-required-mark">*</span></label>
                 <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descricão é obrigatória.</small>
+                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descrição é obrigatória.</small>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="app-field">
-                    <label for="add-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
-                    <InputNumber id="add-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                    <label for="edit-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
+                    <InputNumber inputId="edit-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
                     <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
                 </div>
                 <div class="app-field">
-                    <label for="add-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
-                    <Select id="add-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatoria.</small>
+                    <label for="edit-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
+                    <Select inputId="edit-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatória.</small>
                 </div>
             </div>
         </div>
@@ -184,7 +163,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
+    <Dialog :draggable="false" v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar inativação" :modal="true" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
@@ -192,26 +171,27 @@
             </div>
         </div>
         <template #footer>
-            <Button label="Nao" icon="pi pi-times" text @click="deleteDialogVisible = false" />
-            <Button label="Sim" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
+            <Button label="Cancelar" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Inativar" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
 </template>
 
 <script setup lang="ts">
+import AppEmptyState from '../components/AppEmptyState.vue';
 import { onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import Button from 'primevue/button';
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import InputNumber from 'primevue/inputnumber';
 import Select from 'primevue/select';
 import Dialog from 'primevue/dialog';
 import ContextMenu from 'primevue/contextmenu';
 import { useToast } from 'primevue/usetoast';
+import AppTableToolbar from '../components/AppTableToolbar.vue';
+import AppStatusBadge from '../components/AppStatusBadge.vue';
 import AppLayout from '../components/AppLayout.vue';
 import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';
 import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
@@ -421,7 +401,7 @@ const reactivateProcedure = () => {
 };
 
 const rowClass = (data: Procedure) => {
-    return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
+    return [{ 'inactive-row': data.status === 'Inativo' }];
 };
 
 onMounted(loadProcedures);

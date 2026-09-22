@@ -4,32 +4,33 @@
       <AppBrand />
 
       <div class="flex gap-4">
-        <Button 
-          icon="pi pi-cog" 
-          text 
-          rounded 
-          severity="secondary" 
-          v-tooltip.bottom="'Configuration'" 
-          aria-label="Configuration" 
+        <Button
+          icon="pi pi-cog"
+          text
+          rounded
+          severity="secondary"
+          v-tooltip.bottom="'Configurações'"
+          aria-label="Configurações"
         />
-        <Button 
-          icon="pi pi-sign-out" 
-          text 
-          rounded 
-          severity="danger" 
-          v-tooltip.bottom="'Logout'" 
-          aria-label="Logout" 
-          @click="logout" 
+        <Button
+          icon="pi pi-sign-out"
+          text
+          rounded
+          severity="danger"
+          v-tooltip.bottom="'Sair'"
+          aria-label="Sair"
+          @click="logout"
         />
       </div>
     </header>
 
     <main class="flex-1 flex justify-center items-center p-8">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[900px] w-full">
-        <Card 
-          v-for="item in modules" 
-          :key="item.title" 
-          class="group cursor-pointer text-center border-2 border-transparent bg-[var(--p-surface-0)] shadow-[0_12px_25px_rgba(12,62,119,0.1)] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--p-primary-color)] hover:shadow-[0_12px_25px_rgba(6,46,91,0.141)]" 
+        <Card
+          v-for="item in modules"
+          :key="item.title"
+          :tabindex="0" role="link" @keydown.enter="accessModule(item.route)"
+          class="group cursor-pointer text-center border-2 border-transparent bg-[var(--p-surface-0)] shadow-[0_12px_25px_rgba(12,62,119,0.1)] transition-all duration-300 hover:-translate-y-1 hover:border-[var(--p-primary-color)] hover:shadow-[0_12px_25px_rgba(6,46,91,0.141)]"
           @click="accessModule(item.route)"
         >
           <template #content>
