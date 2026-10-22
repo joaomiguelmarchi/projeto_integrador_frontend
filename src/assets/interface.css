@@ -1,0 +1,95 @@
+/* Shared interface rules: all list screens and dialogs use the same rhythm. */
+.app-shell { display: flex; height: 100dvh; overflow: hidden; background: var(--p-surface-100); color: var(--p-surface-800); }
+.app-shell > aside { --p-surface-100: #eaeff3; --p-surface-0: #f9f9f2; font-family: var(--font-sans); }
+.app-main { display: flex; flex: 1; flex-direction: column; min-width: 0; overflow: hidden; }
+.app-page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.5rem 2rem; flex-shrink: 0; }
+.app-page-header h1 { margin: 0; font-size: 1.65rem; font-weight: 700; letter-spacing: -.035em; }
+.app-page-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 0 2rem 2rem; overflow: hidden; }
+.app-page-content > div { min-height: 0; box-shadow: 0 4px 20px rgb(15 23 42 / 3%); }
+:where(button, a, [tabindex="0"]):focus-visible { outline: 2px solid var(--p-primary-600); outline-offset: 3px; }
+.p-toast { max-width: calc(100vw - 2rem); }
+
+.app-table-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--p-surface-200); }
+.app-table-toolbar-search { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; flex: 1; min-width: 0; }
+.app-table-toolbar-search .p-iconfield { width: min(100%, 23rem); }
+.app-table-toolbar-search .p-inputtext { width: 100%; min-height: 2.75rem; border-radius: .65rem; background: var(--p-surface-50); }
+.app-table-toolbar-actions { display: flex; gap: .75rem; }
+.app-table { min-height: 0; min-width: 0; }
+.app-table .p-datatable-table-container { overscroll-behavior-x: contain; }
+.app-table .p-datatable-table { min-width: 56rem; }
+.app-table .p-datatable-thead .p-inputtext, .app-table .p-datatable-thead .p-select { width: 100%; min-width: 6rem; font-size: .8125rem; box-shadow: none; }
+.app-table .p-datatable-thead :is(.p-inputtext, .p-select, .p-select-label) { font-size: .8125rem; font-weight: 400; }
+.app-table .p-datatable-thead .p-inputtext::placeholder { font-size: inherit; font-weight: 400; }
+.app-table .p-datatable-tbody > tr:not(.p-datatable-row-selected):not(.p-datatable-empty-message):hover > td { background: var(--p-surface-50); }
+.app-table .p-datatable-tbody > .p-datatable-row-selected > td { background: var(--p-primary-50); color: var(--p-primary-900); }
+.app-table .inactive-row { color: var(--p-surface-500); background: var(--p-surface-50); }
+.app-table .p-datatable-tbody .p-button-icon-only { width: 2.35rem; height: 2.35rem; border-radius: .6rem; }
+.app-table .p-datatable-tbody .p-button-outlined:not(.p-button-danger) { border-color: var(--p-surface-200); color: var(--p-surface-600); }
+.app-table .p-paginator { --p-paginator-nav-button-width: 2rem; --p-paginator-nav-button-height: 2rem; border-top: 1px solid var(--p-surface-200); padding: .45rem .5rem; gap: .25rem; font-size: .75rem; flex-shrink: 0; }
+.app-table .p-paginator .p-select { height: 2rem; font-size: .75rem; }
+.app-table .p-paginator .p-select-label { padding: .35rem .6rem; font-size: .75rem; }
+.app-table .p-paginator .p-select-dropdown { width: 1.75rem; }
+.app-table .p-paginator-current { color: var(--p-surface-500); font-variant-numeric: tabular-nums; }
+:is(.app-table, .quotation-procedures-table) .app-numeric-cell { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+:is(.app-table, .quotation-procedures-table) .p-datatable-thead > tr > th { text-align: left; }
+:is(.app-table, .quotation-procedures-table) .p-datatable-column-header-content { justify-content: flex-start; }
+:is(.app-table, .quotation-procedures-table) :is(.app-actions-cell, .billing-actions-cell) .p-datatable-column-header-content { justify-content: center; }
+.quotation-procedures-table .p-datatable-thead > tr > th { background: var(--p-surface-50); color: var(--p-surface-600); font-size: .8125rem; }
+.quotation-procedures-table .p-datatable-table { min-width: 40rem; }
+
+/* Keep the list viewport and its footer anchored to the available page height. */
+.app-table-region { min-height: 0; }
+.app-page-content .app-table { display: flex; flex: 1 1 0; flex-direction: column; }
+.app-page-content .app-table > .p-datatable-table-container { flex: 1 1 0; min-height: 0; overflow: auto; }
+.app-page-content .app-table .p-datatable-table:has(.p-datatable-empty-message),
+.app-page-content .app-table .p-datatable-tbody:has(.p-datatable-empty-message) { height: 100%; }
+.app-page-content .app-table .p-datatable-empty-message > td { vertical-align: middle; }
+.billing-page .patient-record-tab-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: auto; }
+.billing-page .patient-record-tab-panel > .app-table { min-height: 16rem; }
+.billing-page .billing-dashboard, .billing-page .billing-dashboard-toggle { flex-shrink: 0; }
+.app-table.patient-record-patient-table .p-datatable-table { min-width: 44rem; width: 100%; }
+.quotation-procedures-table .p-autocomplete-input { min-width: 0; }
+
+.app-status-badge { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .65rem; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.app-status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.app-status-badge-success { color: #38751c; background: #f1f8ec; }
+.app-status-badge-warning { color: #8b580b; background: #fff7e8; }
+.app-status-badge-danger { color: #ad332d; background: #fff1f0; }
+.app-status-badge-neutral { color: var(--p-surface-600); background: var(--p-surface-100); }
+.app-empty-state { display: flex; flex-direction: column; align-items: center; gap: .75rem; padding: 3.5rem 1.5rem; text-align: center; color: var(--p-surface-600); }
+.app-empty-state-icon { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; background: var(--p-primary-50); color: var(--p-primary-600); border-radius: 1rem; font-size: 1.25rem; }
+.app-empty-state p { margin: 0; max-width: 28rem; font-size: .875rem; color: var(--p-surface-500); }
+.app-form-hint { grid-column: 1 / -1; margin: 0 0 .25rem; color: var(--p-surface-500); font-size: .8125rem; line-height: 1.6; }
+.app-form-section-title { grid-column: 1 / -1; margin: .25rem 0 0; padding-bottom: .65rem; border-bottom: 1px solid var(--p-surface-200); font-size: .875rem; font-weight: 700; color: var(--p-primary-700); }
+.app-dialog .app-field-label { font-weight: 600; }
+.app-dialog .app-table-toolbar { padding: 0; border: 0; }
+.app-dialog .p-dialog-footer .p-button { min-height: 2.75rem; }
+.app-dialog .p-dialog-footer .p-button-text { color: var(--p-surface-600); }
+.app-dialog .p-dialog-header-actions { margin-left: 1rem; }
+.app-dialog .app-field :is(.p-inputtext, .p-select, .p-inputnumber, .p-autocomplete) { max-width: 100%; }
+.app-dialog .app-confirm-body { line-height: 1.7; }
+.app-dialog .quotation-general-accordion .p-accordionheader { font-size: .95rem; }
+.patient-record-tab-label { font-size: .9rem; }
+
+@media (max-width: 1100px) {
+  .app-page-header { padding: 1.25rem; }
+  .app-page-content { padding: 0 1.25rem 1.25rem; }
+}
+@media (max-width: 640px) {
+  .app-page-header { padding: 1rem .75rem; }
+  .app-page-header h1 { font-size: 1.35rem; }
+  .app-page-content { padding: 0 .5rem .5rem; }
+  .app-table-toolbar { padding: 1rem; align-items: stretch; }
+  .app-table-toolbar-search, .app-table-toolbar-actions { flex-basis: 100%; }
+  .app-table-toolbar-actions .p-button { width: 100%; }
+  .app-table-toolbar-search .p-iconfield { width: 100%; }
+  .app-table .p-paginator { padding-inline: 0; gap: .15rem; }
+  .app-table .p-paginator-current { margin: 0; }
+  .app-table.p-datatable { padding-inline: 0; }
+  .app-dialog { max-width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
+  .app-empty-state { align-items: flex-start; text-align: left; }
+  .app-empty-state p { max-width: 15rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *, .app-dialog * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

@@ -1,31 +1,16 @@
 <template>
-    <AppLayout title="Orcamentos">
+    <AppLayout title="Orçamentos">
         <div class="bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
-            <div class="flex flex-col gap-3 p-5 border-b border-[var(--p-surface-200)] sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex w-full items-center gap-2 sm:w-auto">
-                    <IconField class="w-full sm:w-auto">
-                        <InputIcon class="flex items-center">
-                            <i class="pi pi-search text-[var(--p-surface-400)]" />
-                        </InputIcon>
-                        <InputText
-                            v-model="quotationFilters.global.value"
-                            placeholder="Pesquisar"
-                            class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-full sm:w-64 focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
-                        />
-                    </IconField>
-                </div>
+            <AppTableToolbar
+                v-model="quotationFilters.global.value"
+                placeholder="Pesquisar orçamentos"
+                :has-filters="Object.values(quotationFilters).some(filter => !!filter.value)"
+                @clear="Object.values(quotationFilters).forEach(filter => filter.value = null)"
+            >
+                <Button size="small" icon="pi pi-plus" label="Novo orçamento" @click="openAddDialog" />
+            </AppTableToolbar>
 
-                <div class="flex w-full items-center gap-3 sm:w-auto">
-                    <Button
-                        icon="pi pi-plus"
-                        label="Adicionar"
-                        class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-4 !py-2 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center justify-center !rounded-lg sm:ml-2 shadow-md"
-                        @click="openAddDialog"
-                    />
-                </div>
-            </div>
-
-            <div class="flex-1 flex flex-col overflow-hidden px-2 pb-2">
+            <div class="app-table-region flex-1 flex flex-col overflow-hidden px-2 pb-2">
                 <DataTable
                     v-model:filters="quotationFilters"
                     v-model:selection="selectedQuotation"
@@ -45,39 +30,29 @@
                     :rows="10"
                     :rowsPerPageOptions="[5, 10, 20]"
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
-                    currentPageReportTemplate="{first} - {last} de {totalRecords}"
+                    currentPageReportTemplate="{first}–{last} de {totalRecords} registros"
                 >
-                    <template #empty>
-                        <div class="app-table-empty-state flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
-                            <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum orçamento encontrado.</p>
-                        </div>
-                    </template>
+                    <template #empty><AppEmptyState title="Nenhum orçamento encontrado." /></template>
 
                     <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem;">
                         <template #body="{ data }">
-                            <div class="flex justify-left w-full pl-2">
-                                <span class="px-4 py-1.5 rounded-full inline-flex items-center gap-2 border border-[var(--p-surface-300)] bg-[var(--p-surface-0)] text-[var(--p-surface-500)]">
-                                    <span class="w-3 h-3 rounded-full" :style="getStatusStyle(data.status)"></span>
-                                    {{ data.status }}
-                                </span>
-                            </div>
+                            <AppStatusBadge :value="data.status" />
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
                             <Select
                                 v-model="filterModel.value"
                                 @change="filterCallback()"
                                 :options="statusOptions"
-                                placeholder="Todos"
+                                placeholder="Todos" aria-label="Todos"
                                 class="w-full h-[36px] text-sm bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-md flex items-center"
                                 :showClear="true"
                             />
                         </template>
                     </Column>
 
-                    <Column field="id" header="ID Orcamento" :showFilterMenu="false" style="width: 12rem;">
+                    <Column field="id" header="ID Orçamento" :showFilterMenu="false" style="width: 12rem;">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" aria-label="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
@@ -86,31 +61,31 @@
                             {{ formatDate(data.generationDate) }}
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Data" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Data" aria-label="Buscar Data" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="patientName" header="Nome do Paciente" :showFilterMenu="false">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Paciente" aria-label="Buscar Paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
-                    <Column field="totalValue" header="Valor Total" :showFilterMenu="false" style="width: 12rem;">
+                    <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="totalValue" header="Valor Total" :showFilterMenu="false" style="width: 12rem;">
                         <template #body="{ data }">
                             {{ formatCurrency(data.totalValue) }}
                         </template>
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Valor" aria-label="Buscar Valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
-                    <Column :exportable="false" style="min-width: 8rem">
+                    <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
-                                <Button icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Baixar orçamento em PDF" title="Baixar orçamento em PDF" icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
                     </Column>
@@ -121,7 +96,7 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog v-model:visible="addDialogVisible" :style="{ width: '980px' }" header="Novo Orcamento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '1180px' }" header="Novo Orçamento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <QuotationGeneralFields
                 mode="add"
@@ -136,7 +111,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="editDialogVisible" :style="{ width: '980px' }" header="Detalhes do Orçamento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '1180px' }" header="Detalhes do Orçamento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <QuotationGeneralFields
                 mode="edit"
@@ -151,7 +126,7 @@
         </template>
     </Dialog>
 
-    <Dialog v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar Exclusão" :modal="true" class="app-dialog">
+    <Dialog :draggable="false" v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar inativação" :modal="true" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
@@ -159,13 +134,14 @@
             </div>
         </div>
         <template #footer>
-            <Button label="Não" icon="pi pi-times" text @click="deleteDialogVisible = false" />
-            <Button label="Sim" icon="pi pi-check" severity="danger" @click="executeDelete" />
+            <Button label="Cancelar" icon="pi pi-times" text @click="deleteDialogVisible = false" />
+            <Button label="Inativar" icon="pi pi-check" severity="danger" @click="executeDelete" />
         </template>
     </Dialog>
 </template>
 
 <script setup lang="ts">
+import AppEmptyState from '../components/AppEmptyState.vue';
 import { defineComponent, h, onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import Accordion from 'primevue/accordion';
@@ -178,8 +154,6 @@ import Column from 'primevue/column';
 import ContextMenu from 'primevue/contextmenu';
 import DataTable from 'primevue/datatable';
 import Dialog from 'primevue/dialog';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
 import InputMask from 'primevue/inputmask';
 import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
@@ -189,6 +163,8 @@ import { getPatientServiceErrorMessage, PatientService } from '../../infrastruct
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
 import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';
 import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
+import AppTableToolbar from '../components/AppTableToolbar.vue';
+import AppStatusBadge from '../components/AppStatusBadge.vue';
 import AppLayout from '../components/AppLayout.vue';
 
 interface QuotationProcedure {
@@ -315,7 +291,7 @@ const QuotationGeneralFields = defineComponent({
                                 h('span', { class: 'app-required-mark' }, '*')
                             ]),
                             h(AutoComplete, {
-                                id: `${prefix}-patient`,
+                                inputId: `${prefix}-patient`,
                                 modelValue: selectedPatient.value,
                                 'onUpdate:modelValue': (value: PatientOption | string | null) => {
                                     selectedPatient.value = value;
@@ -345,7 +321,7 @@ const QuotationGeneralFields = defineComponent({
                         h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
                             h('label', { for: `${prefix}-value`, class: 'app-field-label' }, 'Valor Total (R$)'),
                             h(InputNumber, {
-                                id: `${prefix}-value`,
+                                inputId: `${prefix}-value`,
                                 modelValue: currentQuotation.value.totalValue,
                                 'onUpdate:modelValue': (value: number | null) => {
                                     currentQuotation.value.totalValue = value ?? 0;
@@ -359,7 +335,7 @@ const QuotationGeneralFields = defineComponent({
                         h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
                             h('label', { for: `${prefix}-status`, class: 'app-field-label' }, 'Status'),
                             h(Select, {
-                                id: `${prefix}-status`,
+                                inputId: `${prefix}-status`,
                                 modelValue: currentQuotation.value.status,
                                 'onUpdate:modelValue': (value: Quotation['status']) => {
                                     currentQuotation.value.status = value;
@@ -413,8 +389,8 @@ const QuotationProceduresSection = defineComponent({
                         }),
                         h(Column, {
                             field: 'description',
-                            header: 'Descricao',
-                            style: 'min-width: 18rem'
+                            header: 'Descrição',
+                            style: 'min-width: 24rem'
                         }, {
                             body: ({ data }: { data: QuotationProcedure }) => h(AutoComplete, {
                                 modelValue: data.description,
@@ -441,17 +417,20 @@ const QuotationProceduresSection = defineComponent({
                         }),
                         h(Column, {
                             field: 'classification',
-                            header: 'Classificacao',
+                            header: 'Classificação',
                             style: 'width: 12rem'
                         }, {
                             body: ({ data }: { data: QuotationProcedure }) => h('span', { class: 'quotation-procedure-readonly-field' }, data.classification)
                         }),
                         h(Column, {
-                            header: '',
+                            header: 'Ações',
+                            headerClass: 'app-actions-cell',
                             style: 'width: 4rem'
                         }, {
                             body: ({ data }: { data: QuotationProcedure }) => h('div', { class: 'quotation-procedure-action' }, [
                                 h(Button, {
+                                    'aria-label': 'Remover procedimento',
+                                    title: 'Remover procedimento',
                                     icon: 'pi pi-trash',
                                     variant: 'outlined',
                                     rounded: true,
@@ -885,16 +864,6 @@ const downloadQuotationPdf = (quotation: Quotation) => {
     URL.revokeObjectURL(url);
 };
 
-const getStatusStyle = (status: string) => {
-    switch (status) {
-        case 'Aprovado': return 'background-color: var(--p-primary-1000);';
-        case 'Pendente': return 'background-color: var(--p-primary-25);';
-        case 'Rejeitado': return 'background-color: var(--p-primary-1010);';
-        case 'Inativo':
-        default:
-            return 'background-color: var(--p-surface-500);';
-    }
-};
 
 const approveQuotation = () => {
     if (!contextMenuSelection.value) return;
@@ -1049,7 +1018,7 @@ const executeDelete = () => {
 };
 
 const rowClass = (data: Quotation) => {
-    return [{ 'inactive-row opacity-60 grayscale-[0.5] bg-[var(--p-surface-50)]/50': data.status === 'Inativo' }];
+    return [{ 'inactive-row': data.status === 'Inativo' }];
 };
 
 onMounted(() => {

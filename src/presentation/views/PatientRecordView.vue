@@ -608,24 +608,20 @@
         </div>
     </AppLayout>
 
-    <Dialog
+    <Dialog :draggable="false"
         v-model:visible="patientDialogVisible"
-        :style="{ width: '920px' }"
+        :style="{ width: '1120px' }"
         header="Selecionar Paciente"
         :modal="true"
         class="app-dialog p-fluid"
     >
         <div class="app-dialog-body app-dialog-section">
-            <IconField>
-                <InputIcon class="flex items-center">
-                    <i class="pi pi-search text-[var(--p-surface-400)]" />
-                </InputIcon>
-                <InputText
-                    v-model="patientFilters.global.value"
-                    placeholder="Pesquisar"
-                    class="py-2 px-3 pl-10 h-9 bg-[var(--p-surface-0)] border border-[var(--p-surface-200)] rounded-full w-full focus:ring-2 focus:ring-[var(--p-surface-900)] focus:border-[var(--p-surface-900)] shadow-sm transition-shadow"
-                />
-            </IconField>
+            <AppTableToolbar
+                v-model="patientFilters.global.value"
+                placeholder="Pesquisar pacientes"
+                :has-filters="Object.values(patientFilters).some(filter => !!filter.value)"
+                @clear="Object.values(patientFilters).forEach(filter => filter.value = null)"
+            />
 
             <div class="patient-record-lazy-table-wrapper" @scroll.passive="onPatientTableScroll">
                 <DataTable
@@ -640,12 +636,7 @@
                     selectionMode="single"
                     :metaKeySelection="false"
                 >
-                    <template #empty>
-                        <div class="flex flex-col items-center justify-center py-12 text-[var(--p-surface-400)]">
-                            <i class="pi pi-inbox text-4xl mb-3 text-[var(--p-surface-300)]"></i>
-                            <p class="font-medium text-[var(--p-surface-500)]">Nenhum paciente encontrado.</p>
-                        </div>
-                    </template>
+                    <template #empty><AppEmptyState title="Nenhum paciente encontrado." /></template>
 
                     <template #loading>
                         <div class="text-center py-8 text-[var(--p-surface-500)] font-medium flex items-center justify-center gap-3">
@@ -656,25 +647,25 @@
 
                     <Column field="displayId" header="ID Paciente" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" aria-label="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="name" header="Nome do Paciente" :showFilterMenu="false">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Nome" aria-label="Buscar Nome" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="cpf" header="CPF" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar CPF" aria-label="Buscar CPF" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
 
                     <Column field="mobilePhone" header="Celular" :showFilterMenu="false" style="width: 12rem">
                         <template #filter="{ filterModel, filterCallback }">
-                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
+                            <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar Celular" aria-label="Buscar Celular" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
                     </Column>
                 </DataTable>
@@ -699,6 +690,7 @@
 </template>
 
 <script setup lang="ts">
+import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import Button from 'primevue/button';
@@ -706,8 +698,7 @@ import Checkbox from 'primevue/checkbox';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
 import Dialog from 'primevue/dialog';
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
+import AppTableToolbar from '../components/AppTableToolbar.vue';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import Tab from 'primevue/tab';
