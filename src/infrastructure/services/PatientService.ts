@@ -64,7 +64,11 @@ export const getPatientServiceErrorMessage = (error: unknown) => {
 export const PatientService = {
   async list() {
     const response = await api.get<DefaultResponse<ApiPatient[]>>('/patient/list');
-    return unwrapResponse(response.data) ?? [];
+    const patients = unwrapResponse(response.data);
+    if (!Array.isArray(patients)) {
+      throw new Error('Resposta inesperada ao buscar pacientes. Tente novamente.');
+    }
+    return patients;
   },
 
   async register(patient: ApiPatient) {

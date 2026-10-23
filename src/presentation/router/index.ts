@@ -75,10 +75,23 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, _from, next) => {
+window.addEventListener('session-expired', () => {
+  if (router.currentRoute.value.path !== '/login') void router.replace('/login');
+});
+
+router.beforeEach(async (to, _from, next) => {
   
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const isAuthenticated = AuthService.isAuthenticated()
+  let isAuthenticated = false
+  if (requiresAuth || (to.path === '/login' && AuthService.isAuthenticated())) {
+    try {
+      await AuthService.currentUser()
+      AuthService.saveSession()
+      isAuthenticated = true
+    } catch {
+      localStorage.removeItem('usuario_logado')
+    }
+  }
 
   if (requiresAuth && !isAuthenticated) {
     next('/login')

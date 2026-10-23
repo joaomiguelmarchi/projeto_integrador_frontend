@@ -36,11 +36,25 @@ export const AuthService = {
   },
 
   saveSession(data?: unknown) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data ?? true));
+    // The cookie is the credential; do not persist the login token.
+    void data;
+    localStorage.setItem(AUTH_STORAGE_KEY, 'true');
   },
 
-  logout() {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+  async currentUser() {
+    const response = await api.get('/user/me');
+    if (response.data?.error || !response.data?.data?.id) {
+      throw new Error('Não foi possível validar sua sessão.');
+    }
+    return response.data.data as { id: number; name: string; email: string };
+  },
+
+  async logout() {
+    try {
+      await api.post('/user/logout');
+    } finally {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
   },
 
   isAuthenticated() {
