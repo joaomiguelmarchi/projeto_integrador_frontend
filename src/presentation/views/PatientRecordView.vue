@@ -627,6 +627,7 @@
                 <DataTable
                     v-model:filters="patientFilters"
                     v-model:selection="patientDialogSelection"
+                    @row-contextmenu="event => { event.originalEvent.preventDefault(); patientDialogSelection = event.data; }"
                     :value="visiblePatientOptions"
                     :loading="loadingPatients"
                     class="app-table patient-record-patient-table"

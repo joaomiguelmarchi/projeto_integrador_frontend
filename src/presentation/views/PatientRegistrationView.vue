@@ -15,6 +15,7 @@
                     v-model:filters="patientFilters"
                     v-model:selection="selectedPatient"
                     v-model:contextMenuSelection="contextMenuSelection"
+                    @update:selection="contextMenuSelection = null"
                     @rowContextmenu="onRowContextMenu"
                     :value="patients"
                     :loading="loading"
@@ -100,8 +101,8 @@
 
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '800px' }" header="Adicionar Paciente" :modal="true" class="app-dialog p-fluid">
-        <div class="app-dialog-body app-form-grid">
+    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '960px' }" header="Adicionar Paciente" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-dialog-section">
             <PatientFormFields
                 :patient="currentPatient"
                 :submitted="submitted"
@@ -116,8 +117,13 @@
         </template>
     </Dialog>
 
-    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do Paciente" :modal="true" class="app-dialog p-fluid">
-        <div class="app-dialog-body app-form-grid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '960px' }" header="Detalhes do paciente" :modal="true" class="app-dialog p-fluid">
+        <div class="app-dialog-body app-dialog-section">
+            <AppDetailSummary :label="'Paciente ' + currentPatient.displayId" :title="currentPatient.name" icon="pi-user" :status="currentPatient.status" :items="[
+                { label: 'CPF', value: currentPatient.cpf },
+                { label: 'Celular', value: currentPatient.mobilePhone },
+                { label: 'E-mail', value: currentPatient.email }
+            ]" />
             <PatientFormFields
                 :patient="currentPatient"
                 :submitted="submitted"
@@ -144,9 +150,13 @@
             <Button label="Inativar" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
+    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.name : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
+import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
+import AppDetailSummary from '../components/AppDetailSummary.vue';
+import AppDetailSection from '../components/AppDetailSection.vue';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, defineComponent, h, onMounted, ref } from 'vue';
 import type { PropType } from 'vue';
@@ -246,7 +256,7 @@ const PatientFormFields = defineComponent({
         ]);
 
         return () => [
-            h('h3', { class: 'app-form-section-title' }, 'Dados pessoais'),
+            h(AppDetailSection, { title: 'Dados pessoais', icon: 'pi-user' }, () => [h('div', { class: 'app-form-grid' }, [
             h('div', { class: 'app-field col-span-12 md:col-span-8' }, [
                 label('name', 'Nome Completo', true),
                 h(InputText, {
@@ -297,7 +307,8 @@ const PatientFormFields = defineComponent({
                     class: 'w-full'
                 })
             ]),
-            h('h3', { class: 'app-form-section-title' }, 'Endereço'),
+            ])]),
+            h(AppDetailSection, { title: 'Endereço', icon: 'pi-map-marker' }, () => [h('div', { class: 'app-form-grid' }, [
             field('zip', 'CEP', h(InputMask, {
                 id: `${props.prefix}-zip`,
                 modelValue: props.patient.zipCode,
@@ -331,7 +342,8 @@ const PatientFormFields = defineComponent({
                 invalid: required.value.addressNumber,
                 class: 'w-full'
             }), required.value.addressNumber ? 'O número é obrigatório.' : '', true),
-            h('h3', { class: 'app-form-section-title' }, 'Contato e informações complementares'),
+            ])]),
+            h(AppDetailSection, { title: 'Contato e informações complementares', icon: 'pi-phone' }, () => [h('div', { class: 'app-form-grid' }, [
             field('home-phone', 'Telefone Residencial', h(InputMask, {
                 id: `${props.prefix}-home-phone`,
                 modelValue: props.patient.homePhone,
@@ -383,6 +395,7 @@ const PatientFormFields = defineComponent({
                     class: 'w-full'
                 })
             ])
+            ])])
         ];
     }
 });
@@ -412,7 +425,8 @@ const menuItems = ref([
         label: 'Reativar paciente',
         icon: 'pi pi-refresh',
         command: () => reactivatePatient()
-    }
+    },
+    { label: 'Excluir permanentemente', icon: 'pi pi-trash', command: () => requestPermanentDelete() }
 ]);
 
 const patientFilters = ref({
@@ -728,6 +742,9 @@ const executeDelete = async () => {
 };
 
 const onRowContextMenu = (event: any) => {
+    event.originalEvent.preventDefault();
+    selectedPatient.value = event.data;
+    contextMenuSelection.value = event.data;
     if (contextMenuSelection.value?.status === 'Inativo') {
         cm.value.show(event.originalEvent);
     }
@@ -756,4 +773,30 @@ const rowClass = (data: Patient) => {
 };
 
 onMounted(loadPatients);
+
+const recordToDelete = ref<Patient | null>(null);
+const permanentlyDeleting = ref(false);
+const requestPermanentDelete = () => {
+    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
+};
+const permanentlyDelete = async () => {
+    const target = recordToDelete.value;
+    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
+    permanentlyDeleting.value = true;
+    try {
+        const deleted = await PatientService.delete(target.id);
+        if (deleted !== true) throw new Error('O servidor não confirmou a exclusão do registro.');
+        patients.value = patients.value.filter(item => item.id !== target.id);
+        if (selectedPatient.value?.id === target.id) selectedPatient.value = null;
+        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
+
+        recordToDelete.value = null;
+        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
+    } catch (error: unknown) {
+        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: getPatientServiceErrorMessage(error), life: 5000 });
+    } finally {
+        permanentlyDeleting.value = false;
+    }
+};
+
 </script>

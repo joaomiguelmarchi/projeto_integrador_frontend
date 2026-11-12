@@ -15,6 +15,7 @@
                     v-model:filters="quotationFilters"
                     v-model:selection="selectedQuotation"
                     v-model:contextMenuSelection="contextMenuSelection"
+                    @update:selection="contextMenuSelection = null"
                     @rowContextmenu="onRowContextMenu"
                     :value="quotationsMock"
                     class="app-table flex-1 px-2 sm:px-4"
@@ -111,8 +112,12 @@
         </template>
     </Dialog>
 
-    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '1180px' }" header="Detalhes do Orçamento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '1180px' }" header="Detalhes do orçamento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
+            <AppDetailSummary :label="'Orçamento ' + currentQuotation.id" :title="currentQuotation.patientName" icon="pi-file" :status="currentQuotation.status" :items="[
+                { label: 'CPF', value: currentQuotation.patientCpf },
+                { label: 'Valor total', value: formatCurrency(currentQuotation.totalValue) }
+            ]" />
             <QuotationGeneralFields
                 mode="edit"
                 :submitted="submitted"
@@ -138,16 +143,16 @@
             <Button label="Inativar" icon="pi pi-check" severity="danger" @click="executeDelete" />
         </template>
     </Dialog>
+    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.patientName : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
+import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
+import AppDetailSummary from '../components/AppDetailSummary.vue';
+import AppDetailSection from '../components/AppDetailSection.vue';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { defineComponent, h, onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
-import Accordion from 'primevue/accordion';
-import AccordionContent from 'primevue/accordioncontent';
-import AccordionHeader from 'primevue/accordionheader';
-import AccordionPanel from 'primevue/accordionpanel';
 import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
@@ -269,10 +274,7 @@ const QuotationGeneralFields = defineComponent({
     setup(props) {
         const prefix = props.mode;
 
-        return () => h(Accordion, { value: '0', class: 'quotation-general-accordion' }, () => [
-            h(AccordionPanel, { value: '0' }, () => [
-                h(AccordionHeader, null, () => 'Informações Gerais'),
-                h(AccordionContent, null, () => [
+        return () => h(AppDetailSection, { title: 'Informações gerais', icon: 'pi-info-circle' }, () => [
                     h('div', { class: 'grid grid-cols-12 gap-4 pt-2' }, [
                         h('div', { class: 'app-field col-span-12 md:col-span-4' }, [
                             h('label', { for: `${prefix}-cpf`, class: 'app-field-label' }, 'CPF'),
@@ -345,8 +347,6 @@ const QuotationGeneralFields = defineComponent({
                             })
                         ])
                     ])
-                ])
-            ])
         ]);
     }
 });
@@ -896,6 +896,9 @@ const reactivateQuotation = () => {
 };
 
 const onRowContextMenu = (event: any) => {
+    event.originalEvent.preventDefault();
+    selectedQuotation.value = event.data;
+    contextMenuSelection.value = event.data;
     if (!contextMenuSelection.value) return;
 
     if (contextMenuSelection.value.status === 'Pendente') {
@@ -922,6 +925,7 @@ const onRowContextMenu = (event: any) => {
             },
             {
                 label: 'Excluir permanentemente',
+                command: () => requestPermanentDelete(),
                 icon: 'pi pi-trash',
                 class: 'text-[var(--p-primary-1010)]'
             }
@@ -1025,4 +1029,29 @@ onMounted(() => {
     void loadPatients();
     void loadProcedures();
 });
+
+const recordToDelete = ref<Quotation | null>(null);
+const permanentlyDeleting = ref(false);
+const requestPermanentDelete = () => {
+    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
+};
+const permanentlyDelete = async () => {
+    const target = recordToDelete.value;
+    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
+    permanentlyDeleting.value = true;
+    try {
+        // This module currently stores demonstration records only.
+        quotationsMock.value = quotationsMock.value.filter(item => item.id !== target.id);
+        if (selectedQuotation.value?.id === target.id) selectedQuotation.value = null;
+        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
+
+        recordToDelete.value = null;
+        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
+    } catch (error: unknown) {
+        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: error instanceof Error ? error.message : 'Tente novamente.', life: 5000 });
+    } finally {
+        permanentlyDeleting.value = false;
+    }
+};
+
 </script>

@@ -93,3 +93,36 @@
 @media (prefers-reduced-motion: reduce) {
   .app-shell *, .app-dialog * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* Shared identification and content panels for detail dialogs. */
+.app-detail-summary { border: 1px solid var(--p-surface-200); border-radius: .75rem; overflow: hidden; flex-shrink: 0; }
+.app-detail-identity { display: flex; align-items: center; gap: .875rem; padding: 1.25rem; background: var(--p-surface-100); flex-wrap: wrap; }
+.app-detail-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 3rem; height: 3rem; border-radius: .75rem; background: var(--p-surface-0); border: 1px solid var(--p-surface-200); color: var(--p-primary-600); font-size: 1.25rem; }
+.app-detail-heading { flex: 1; min-width: 0; }
+.app-detail-eyebrow { color: var(--p-primary-600); font-size: .75rem; font-weight: 600; }
+.app-detail-heading h2 { margin: .25rem 0 0; color: var(--p-surface-700); font-size: 1.125rem; font-weight: 700; overflow-wrap: anywhere; }
+.app-detail-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 1rem; padding: 1rem 1.25rem; margin: 0; }
+.app-detail-meta dt { color: var(--p-surface-500); font-size: .8125rem; }
+.app-detail-meta dd { margin: .45rem 0 0; font-size: .875rem; color: var(--p-surface-700); overflow-wrap: anywhere; }
+.app-detail-section { display: flex; flex-direction: column; gap: 1rem; min-width: 0; padding: 1rem; border: 1px solid var(--p-surface-200); border-radius: .75rem; background: var(--p-surface-50); }
+.app-detail-section-title { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .875rem; font-weight: 700; color: var(--p-surface-700); }
+.app-detail-section-title .pi { color: var(--p-primary-600); }
+.app-dialog .quotation-procedures-header h3 { font-size: .875rem; font-weight: 700; }
+.app-dialog .quotation-procedures-header p { font-size: .8125rem; }
+@media (max-width: 640px) {
+  .app-detail-identity { padding: 1rem; }
+  .app-detail-meta { grid-template-columns: 1fr; padding: 1rem; }
+  .app-detail-section { padding: .875rem; }
+  .app-dialog .quotation-procedures-header { flex-wrap: wrap; }
+}
+
+/* Keep billing detail values on the same axis as their column headings. */
+.billing-detail-table .p-datatable-thead > tr > th.app-numeric-cell { text-align: right; }
+.billing-detail-table .app-numeric-cell .p-datatable-column-header-content { justify-content: flex-end; }
+.billing-detail-table .p-datatable-tbody > tr > td { vertical-align: middle; }
+.billing-detail-table .p-datatable-thead > tr > th.app-actions-cell,
+.billing-detail-table .p-datatable-tbody > tr > td.app-actions-cell { text-align: center; }
+.billing-detail-table .billing-confirm-payment { min-height: 2.75rem; white-space: nowrap; font-weight: 600; }
+
+/* Right-click updates the regular selection; context-menu outlines are redundant. */
+.app-table .p-datatable-tbody > tr.p-datatable-contextmenu-row-selected { outline: none; }

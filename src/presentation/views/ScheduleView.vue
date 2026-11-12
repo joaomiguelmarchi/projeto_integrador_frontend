@@ -43,10 +43,8 @@
 
     <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '1180px' }" :header="appointmentDialogTitle" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
-            <Accordion value="0" class="quotation-general-accordion">
-                <AccordionPanel value="0">
-                    <AccordionHeader>Informações Gerais</AccordionHeader>
-                    <AccordionContent>
+            <AppDetailSummary v-if="dialogMode === 'edit'" :label="'Atendimento ' + currentAppointment.code" :title="currentAppointment.patientName" icon="pi-calendar" :status="currentAppointment.status" :items="[{ label: 'CPF', value: currentAppointment.patientCpf }]" />
+            <AppDetailSection title="Informações gerais" icon="pi-info-circle">
                         <div class="grid grid-cols-12 gap-4 pt-2">
                             <div class="app-field col-span-12 md:col-span-4">
                                 <label for="appointment-cpf" class="app-field-label">CPF</label>
@@ -117,9 +115,7 @@
                                 <small v-if="submitted && !currentAppointment.status" class="app-field-error">O status é obrigatório.</small>
                             </div>
                         </div>
-                    </AccordionContent>
-                </AccordionPanel>
-            </Accordion>
+                    </AppDetailSection>
 
             <section class="quotation-procedures-section">
                 <div class="quotation-procedures-header">
@@ -210,6 +206,8 @@
 </template>
 
 <script setup lang="ts">
+import AppDetailSummary from '../components/AppDetailSummary.vue';
+import AppDetailSection from '../components/AppDetailSection.vue';
 import { computed, onMounted, ref } from 'vue';
 import FullCalendar from '@fullcalendar/vue3';
 import type { CalendarOptions, DateSelectInfo, EventClickInfo, EventDropInfo, EventInput, EventResizeDoneInfo } from '@fullcalendar/vue3';
@@ -222,10 +220,6 @@ import ptBrLocale from '@fullcalendar/vue3/locales/pt-br';
 import '@fullcalendar/vue3/skeleton.css';
 import '@fullcalendar/vue3/themes/classic/theme.css';
 import '@fullcalendar/vue3/themes/classic/palette.css';
-import Accordion from 'primevue/accordion';
-import AccordionContent from 'primevue/accordioncontent';
-import AccordionHeader from 'primevue/accordionheader';
-import AccordionPanel from 'primevue/accordionpanel';
 import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Column from 'primevue/column';
@@ -369,7 +363,7 @@ const menuItems = ref<ScheduleMenuItem[]>([
 const patientVirtualScrollerOptions = { itemSize: 44 };
 const procedureVirtualScrollerOptions = { itemSize: 44 };
 
-const appointmentDialogTitle = computed(() => dialogMode.value === 'add' ? 'Adicionar Atendimento' : 'Detalhes do Atendimento');
+const appointmentDialogTitle = computed(() => dialogMode.value === 'add' ? 'Adicionar Atendimento' : 'Detalhes do atendimento');
 
 const hasValidAppointmentRange = computed(() => {
     if (!currentAppointment.value.start || !currentAppointment.value.end) return false;

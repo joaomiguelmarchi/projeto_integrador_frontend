@@ -9,7 +9,7 @@
         </TabList>
         <TabPanels class="patient-record-tab-panels !p-0">
           <TabPanel value="accounts" class="patient-record-tab-panel">
-            <DataTable v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
+            <DataTable v-model:selection="selectedGridAccount" v-model:contextMenuSelection="contextMenuSelection" @update:selection="contextMenuSelection = null" @row-contextmenu="onAccountContextMenu" selectionMode="single" v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
               <template #empty><AppEmptyState title="Nenhuma conta encontrada." /></template>
               <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem"><template #body="{ data }"><div class="flex justify-left w-full pl-2"><AppStatusBadge :value="data.status" /></div></template><template #filter="{ filterModel, filterCallback }"><Select v-model="filterModel.value" @change="filterCallback()" :options="statuses" showClear placeholder="Todos" aria-label="Status da conta" class="w-full h-[36px] text-sm" /></template></Column>
               <Column field="id" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
@@ -73,17 +73,11 @@
   </Dialog>
   <Dialog :draggable="false" v-model:visible="detailVisible" header="Detalhes da conta" modal class="app-dialog p-fluid" :style="{ width: '1180px', maxWidth: '95vw' }">
     <div v-if="selectedAccount" class="app-dialog-body app-dialog-section">
-      <section class="billing-account-summary" aria-label="Identificação da conta">
-        <div class="billing-account-patient">
-          <span class="billing-account-icon"><i class="pi pi-receipt" aria-hidden="true" /></span>
-          <div><span class="billing-eyebrow">Conta {{ selectedAccount.id }}</span><h2>{{ selectedAccount.patientName }}</h2></div>
-        </div>
-        <dl class="billing-account-meta">
-          <div><dt><i class="pi pi-calendar" aria-hidden="true" />Data geração</dt><dd>{{ formatDate(selectedAccount.generatedAt) }}</dd></div>
-          <div><dt><i class="pi pi-clipboard" aria-hidden="true" />Atendimento</dt><dd>{{ selectedAccount.attendanceId }}</dd></div>
-          <div><dt><i class="pi pi-phone" aria-hidden="true" />Telefone</dt><dd>{{ selectedAccount.phone }}</dd></div>
-        </dl>
-      </section>
+      <AppDetailSummary :label="'Conta ' + selectedAccount.id" :title="selectedAccount.patientName" icon="pi-receipt" :status="selectedAccount.status" :items="[
+        { label: 'Data geração', value: formatDate(selectedAccount.generatedAt) },
+        { label: 'Atendimento', value: selectedAccount.attendanceId },
+        { label: 'Telefone', value: selectedAccount.phone }
+      ]" />
       <div class="billing-account-totals">
         <div><span>Valor total</span><strong>{{ currency(accountTotal(selectedAccount)) }}</strong></div>
         <div class="billing-total-paid"><span>Valor pago</span><strong>{{ currency(accountTotal(selectedAccount) - outstandingTotal(selectedAccount)) }}</strong></div>
@@ -91,20 +85,20 @@
       </div>
       <section class="quotation-procedures-section">
       <div class="quotation-procedures-header"><h3 class="billing-section-title"><i class="pi pi-list" aria-hidden="true" />Procedimentos</h3><span class="billing-section-caption">{{ selectedAccount.procedures.length }} {{ selectedAccount.procedures.length === 1 ? 'item' : 'itens' }}</span></div>
-      <DataTable :value="selectedAccount.procedures" class="quotation-procedures-table" scrollable>
-        <Column field="name" header="Procedimento" /><Column field="quantity" header="Quantidade" />
+      <DataTable :value="selectedAccount.procedures" class="quotation-procedures-table billing-detail-table" scrollable>
+        <Column field="name" header="Procedimento" /><Column field="quantity" header="Quantidade" headerClass="app-numeric-cell" bodyClass="app-numeric-cell" />
         <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Valor unitário"><template #body="{ data }">{{ currency(data.unitAmount) }}</template></Column>
         <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Subtotal"><template #body="{ data }">{{ currency(data.unitAmount * data.quantity) }}</template></Column>
       </DataTable>
       </section>
       <section class="quotation-procedures-section">
       <div class="quotation-procedures-header"><h3 class="billing-section-title"><i class="pi pi-wallet" aria-hidden="true" />Pagamentos</h3><span class="billing-section-caption"> {{ selectedAccount.payments.length === 1 ? 'À vista' : `Parcelado em ${selectedAccount.payments.length} vezes` }}</span></div>
-      <DataTable :value="selectedAccount.payments" class="quotation-procedures-table" scrollable>
+      <DataTable :value="selectedAccount.payments" class="quotation-procedures-table billing-detail-table" scrollable>
         <Column header="Parcela"><template #body="{ index }">{{ index + 1 }}/{{ selectedAccount.payments.length }}</template></Column>
         <Column header="Status"><template #body="{ data }"><AppStatusBadge :value="data.status" /></template></Column>
         <Column field="dueDate" header="Vencimento"><template #body="{ data }">{{ formatDate(data.dueDate) }}<small v-if="selectedAccount.status !== 'Inativo' && isOverdue(data, today)" class="billing-overdue block">Vencido</small></template></Column>
         <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Valor"><template #body="{ data }">{{ currency(data.amount) }}</template></Column>
-        <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" aria-label="Registrar pagamento" v-tooltip.top="'Registrar pagamento'" icon="pi pi-check" variant="outlined" rounded size="small" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
+        <Column headerClass="app-actions-cell" bodyClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 14rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" label="Confirmar pagamento" icon="pi pi-check-circle" class="billing-confirm-payment" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
       </DataTable>
       </section>
     </div>
@@ -127,12 +121,17 @@
     </div>
     <template #footer><Button label="Fechar" icon="pi pi-times" text @click="collectionAccount = null" /><Button label="Copiar mensagem" icon="pi pi-copy" @click="copyCollection" /></template>
   </Dialog>
+    <ContextMenu ref="accountMenu" :model="accountMenuItems" />
+    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.patientName : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
+import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
+import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
+import ContextMenu from 'primevue/contextmenu'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
@@ -234,6 +233,43 @@ async function copyCollection() {
   try { await navigator.clipboard.writeText(collectionMessage.value); toast.add({ severity: 'success', summary: 'Mensagem copiada', life: 3000 }) }
   catch { toast.add({ severity: 'warn', summary: 'Não foi possível copiar', detail: 'Selecione e copie o texto da mensagem manualmente.', life: 4000 }) }
 }
+
+const selectedGridAccount = ref<PatientAccount | null>(null);
+const contextMenuSelection = ref<PatientAccount | null>(null);
+const accountMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
+const accountMenuItems = [{ label: 'Excluir permanentemente', icon: 'pi pi-trash', command: () => requestPermanentDelete() }];
+const onAccountContextMenu = (event: { originalEvent: Event; data: PatientAccount }) => {
+    event.originalEvent.preventDefault();
+    selectedGridAccount.value = event.data;
+    contextMenuSelection.value = event.data;
+    if (event.data.status === 'Inativo') accountMenu.value?.show(event.originalEvent);
+};
+const recordToDelete = ref<PatientAccount | null>(null);
+const permanentlyDeleting = ref(false);
+const requestPermanentDelete = () => {
+    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
+};
+const permanentlyDelete = async () => {
+    const target = recordToDelete.value;
+    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
+    permanentlyDeleting.value = true;
+    try {
+        // This module currently stores demonstration records only.
+        accounts.value = accounts.value.filter(item => item.id !== target.id);
+        if (selectedAccount.value?.id === target.id) selectedAccount.value = null;
+        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
+        detailVisible.value = false;
+        if (selectedGridAccount.value?.id === target.id) selectedGridAccount.value = null;
+        if (collectionAccount.value?.id === target.id) collectionAccount.value = null;
+        recordToDelete.value = null;
+        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
+    } catch (error: unknown) {
+        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: error instanceof Error ? error.message : 'Tente novamente.', life: 5000 });
+    } finally {
+        permanentlyDeleting.value = false;
+    }
+};
+
 </script>
 
 <style scoped>
@@ -251,21 +287,12 @@ async function copyCollection() {
 .billing-dashboard { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; padding: 1.25rem; }
 .billing-metric { display: flex; flex-direction: column; gap: .65rem; min-width: 0; padding: 1.25rem; border: 1px solid var(--p-surface-200); border-radius: .75rem; background: var(--p-surface-0); box-shadow: 0 2px 8px color-mix(in srgb, var(--p-primary-600) 5%, transparent); }
 .billing-metric-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--p-surface-600); font-size: .875rem; font-weight: 600; }
-.billing-metric-icon, .billing-account-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.5rem; height: 2.5rem; border-radius: .75rem; background: var(--p-primary-50); color: var(--p-primary-600); }
+.billing-metric-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 2.5rem; height: 2.5rem; border-radius: .75rem; background: var(--p-primary-50); color: var(--p-primary-600); }
 .billing-metric-value { font-size: clamp(1.35rem, 2vw, 1.75rem); font-weight: 700; color: var(--p-primary-700); letter-spacing: -.025em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .billing-metric-caption, .billing-section-caption { font-size: .8125rem; color: var(--p-surface-500); }
 .billing-metric-overdue { border-color: color-mix(in srgb, var(--p-primary-1010) 22%, var(--p-surface-200)); background: color-mix(in srgb, var(--p-primary-1010) 3%, var(--p-surface-0)); }
 .billing-metric-overdue .billing-metric-icon { color: var(--p-primary-1010); background: color-mix(in srgb, var(--p-primary-1010) 10%, var(--p-surface-0)); }
 .billing-metric-overdue .billing-metric-value { color: var(--p-primary-1010); }
-.billing-account-summary { border: 1px solid var(--p-surface-200); border-radius: .75rem; overflow: hidden; }
-.billing-account-patient { display: flex; align-items: center; gap: .875rem; padding: 1.25rem; background: var(--p-surface-100); }
-.billing-account-icon { width: 3rem; height: 3rem; background: var(--p-surface-0); border: 1px solid var(--p-surface-200); font-size: 1.25rem; }
-.billing-eyebrow { color: var(--p-primary-600); font-size: .75rem; font-weight: 700; }
-.billing-account-patient h2 { margin: .25rem 0 0; color: var(--p-surface-700); font-size: 1.125rem; font-weight: 700; overflow-wrap: anywhere; }
-.billing-account-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; padding: 1rem 1.25rem; margin: 0; }
-.billing-account-meta dt { display: flex; align-items: center; gap: .5rem; color: var(--p-surface-500); font-size: .8125rem; }
-.billing-account-meta dt i { color: var(--p-primary-600); }
-.billing-account-meta dd { margin: .45rem 0 0; font-size: .875rem; color: var(--p-surface-700); font-weight: 600; overflow-wrap: anywhere; }
 .billing-account-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .875rem; }
 .billing-account-totals > div { display: flex; flex-direction: column; gap: .5rem; padding: 1rem; border: 1px solid var(--p-surface-200); border-radius: .75rem; }
 .billing-account-totals span { font-size: .8125rem; color: var(--p-surface-500); }
@@ -276,5 +303,5 @@ async function copyCollection() {
 .billing-section-title { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .875rem; font-weight: 700; color: var(--p-surface-700); }
 .billing-section-title i { color: var(--p-primary-600); }
 @media (max-width: 1100px) { .billing-dashboard { grid-template-columns: 1fr; } }
-@media (max-width: 640px) { .billing-account-meta, .billing-account-totals { grid-template-columns: 1fr; } .billing-account-patient { align-items: flex-start; } }
+@media (max-width: 640px) { .billing-account-totals { grid-template-columns: 1fr; } }
 </style>

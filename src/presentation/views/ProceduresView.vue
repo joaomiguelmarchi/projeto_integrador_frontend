@@ -15,6 +15,7 @@
                     v-model:filters="procedureFilters"
                     v-model:selection="selectedProcedure"
                     v-model:contextMenuSelection="contextMenuSelection"
+                    @update:selection="contextMenuSelection = null"
                     @rowContextmenu="onRowContextMenu"
                     :value="procedures"
                     :loading="loading"
@@ -135,26 +136,32 @@
         </template>
     </Dialog>
 
-    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '680px' }" header="Detalhes do Procedimento" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '800px' }" header="Detalhes do procedimento" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
-            <div class="app-field">
-                <label for="edit-description" class="app-field-label">Descrição<span class="app-required-mark">*</span></label>
-                <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
-                <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descrição é obrigatória.</small>
-            </div>
+            <AppDetailSummary :label="'Procedimento ' + currentProcedure.displayId" :title="currentProcedure.description" icon="pi-briefcase" :status="currentProcedure.status" :items="[
+                { label: 'Classificação', value: currentProcedure.category },
+                { label: 'Valor', value: formatCurrency(currentProcedure.price) }
+            ]" />
+            <AppDetailSection title="Informações do procedimento" icon="pi-file-edit">
+                <div class="app-field">
+                    <label for="edit-description" class="app-field-label">Descrição<span class="app-required-mark">*</span></label>
+                    <InputText id="edit-description" v-model.trim="currentProcedure.description" required="true" autofocus :invalid="submitted && !currentProcedure.description" class="w-full" />
+                    <small v-if="submitted && !currentProcedure.description" class="app-field-error">A descrição é obrigatória.</small>
+                </div>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="app-field">
-                    <label for="edit-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
-                    <InputNumber inputId="edit-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="app-field">
+                        <label for="edit-price" class="app-field-label">Valor (R$)<span class="app-required-mark">*</span></label>
+                        <InputNumber inputId="edit-price" v-model="currentProcedure.price" mode="currency" currency="BRL" locale="pt-BR" class="w-full" />
+                        <small v-if="submitted && !currentProcedure.price" class="app-field-error">O preço é obrigatório.</small>
+                    </div>
+                    <div class="app-field">
+                        <label for="edit-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
+                        <Select inputId="edit-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
+                        <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatória.</small>
+                    </div>
                 </div>
-                <div class="app-field">
-                    <label for="edit-category" class="app-field-label">Classificação<span class="app-required-mark">*</span></label>
-                    <Select inputId="edit-category" v-model="currentProcedure.category" :options="categories" placeholder="Selecione" class="w-full" />
-                    <small v-if="submitted && !currentProcedure.category" class="app-field-error">A classificação é obrigatória.</small>
-                </div>
-            </div>
+            </AppDetailSection>
         </div>
 
         <template #footer>
@@ -175,9 +182,13 @@
             <Button label="Inativar" icon="pi pi-check" severity="danger" :loading="saving" @click="executeDelete" />
         </template>
     </Dialog>
+    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.description : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
+import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
+import AppDetailSummary from '../components/AppDetailSummary.vue';
+import AppDetailSection from '../components/AppDetailSection.vue';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -234,7 +245,8 @@ const menuItems = ref([
         label: 'Reativar procedimento',
         icon: 'pi pi-refresh',
         command: () => reactivateProcedure()
-    }
+    },
+    { label: 'Excluir permanentemente', icon: 'pi pi-trash', command: () => requestPermanentDelete() }
 ]);
 
 const formatCurrency = (value: number) => {
@@ -387,6 +399,9 @@ const executeDelete = async () => {
 };
 
 const onRowContextMenu = (event: any) => {
+    event.originalEvent.preventDefault();
+    selectedProcedure.value = event.data;
+    contextMenuSelection.value = event.data;
     if (contextMenuSelection.value?.status === 'Inativo') {
         cm.value.show(event.originalEvent);
     }
@@ -405,4 +420,30 @@ const rowClass = (data: Procedure) => {
 };
 
 onMounted(loadProcedures);
+
+const recordToDelete = ref<Procedure | null>(null);
+const permanentlyDeleting = ref(false);
+const requestPermanentDelete = () => {
+    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
+};
+const permanentlyDelete = async () => {
+    const target = recordToDelete.value;
+    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
+    permanentlyDeleting.value = true;
+    try {
+        const deleted = await ProcedureService.delete(target.id);
+        if (deleted !== true) throw new Error('O servidor não confirmou a exclusão do registro.');
+        procedures.value = procedures.value.filter(item => item.id !== target.id);
+        if (selectedProcedure.value?.id === target.id) selectedProcedure.value = null;
+        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
+
+        recordToDelete.value = null;
+        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
+    } catch (error: unknown) {
+        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: getProcedureServiceErrorMessage(error), life: 5000 });
+    } finally {
+        permanentlyDeleting.value = false;
+    }
+};
+
 </script>
