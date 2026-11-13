@@ -2,6 +2,7 @@
   <AppLayout title="Faturamento">
     <div class="billing-page bg-[var(--p-surface-0)] rounded-2xl shadow-sm flex flex-col overflow-hidden flex-1 border border-[var(--p-surface-200)]">
       <AppTableToolbar v-model="search" placeholder="Pesquisar contas ou pacientes" :has-filters="!!search || [...Object.values(accountFilters), ...Object.values(debtorFilters)].some(filter => !!filter.value)" @clear="clearFilters" />
+      <div v-if="listError" role="alert" class="p-4 flex items-center gap-3"><span>{{ listError }}</span><Button label="Tentar novamente" size="small" :disabled="loading || busy" @click="loadAccounts" /></div>
       <Tabs value="accounts" class="patient-record-tabs">
         <TabList>
           <Tab value="accounts"><span class="patient-record-tab-label"><i class="pi pi-receipt" />Faturamento</span></Tab>
@@ -9,15 +10,15 @@
         </TabList>
         <TabPanels class="patient-record-tab-panels !p-0">
           <TabPanel value="accounts" class="patient-record-tab-panel">
-            <DataTable v-model:selection="selectedGridAccount" v-model:contextMenuSelection="contextMenuSelection" @update:selection="contextMenuSelection = null" @row-contextmenu="onAccountContextMenu" selectionMode="single" v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
-              <template #empty><AppEmptyState title="Nenhuma conta encontrada." /></template>
+            <DataTable v-model:selection="selectedGridAccount" selectionMode="single" v-model:filters="accountFilters" filterDisplay="row" :rowClass="rowClass" :loading="loading" :value="filteredAccounts" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" :rowsPerPageOptions="[5, 10, 20]" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
+              <template #empty><AppEmptyState :title="loading ? 'Carregando contas…' : listError ? 'Não foi possível carregar as contas.' : 'Nenhuma conta encontrada.'" /></template>
               <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem"><template #body="{ data }"><div class="flex justify-left w-full pl-2"><AppStatusBadge :value="data.status" /></div></template><template #filter="{ filterModel, filterCallback }"><Select v-model="filterModel.value" @change="filterCallback()" :options="statuses" showClear placeholder="Todos" aria-label="Status da conta" class="w-full h-[36px] text-sm" /></template></Column>
-              <Column field="id" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column field="code" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="patientName" header="Paciente" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar paciente" aria-label="Buscar paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="generationLabel" header="Data geração" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar data" aria-label="Buscar data" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="totalLabel" header="Valor total" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor" aria-label="Buscar valor" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 10rem; min-width: 10rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" aria-label="Detalhes da conta" v-tooltip.top="'Detalhes da conta'" variant="outlined" rounded size="small" @click="openAccount(data)" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
+              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 10rem; min-width: 10rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" aria-label="Detalhes da conta" v-tooltip.top="'Detalhes da conta'" variant="outlined" rounded size="small" @click="openAccount(data)" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="busy || data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
             </DataTable>
           </TabPanel>
           <TabPanel value="debtors" class="patient-record-tab-panel">
@@ -49,15 +50,15 @@
                 <span class="billing-metric-caption">{{ currency(debtorBalance - totalOverdue) }} a vencer</span>
               </article>
             </section>
-            <DataTable v-model:filters="debtorFilters" filterDisplay="row" :rowsPerPageOptions="[5, 10, 20]" :value="filteredDebtors" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
-              <template #empty><AppEmptyState title="Nenhuma conta vencida encontrada." /></template>
+            <DataTable v-model:filters="debtorFilters" filterDisplay="row" :rowsPerPageOptions="[5, 10, 20]" :loading="loading" :value="filteredDebtors" class="app-table flex-1 px-4 sm:px-6 pb-2" dataKey="id" paginator :rows="10" scrollable scrollHeight="flex" paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink" currentPageReportTemplate="{first}–{last} de {totalRecords} registros">
+              <template #empty><AppEmptyState :title="loading ? 'Carregando contas…' : listError ? 'Não foi possível carregar as contas.' : 'Nenhuma conta vencida encontrada.'" /></template>
               <Column field="patientName" header="Paciente" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar paciente" aria-label="Buscar paciente" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column field="id" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
+              <Column field="code" header="Conta" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar conta" aria-label="Buscar conta" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="phone" header="Telefone" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar telefone" aria-label="Buscar telefone" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column field="dueLabel" header="Data vencimento" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar vencimento" aria-label="Buscar vencimento" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="overdueLabel" header="Valor vencido" :showFilterMenu="false"><template #body="{ data }"><strong class="billing-overdue">{{ data.overdueLabel }}</strong></template><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar valor vencido" aria-label="Buscar valor vencido" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
               <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="balanceLabel" header="Saldo em aberto" :showFilterMenu="false"><template #filter="{ filterModel, filterCallback }"><InputText v-model="filterModel.value" @input="filterCallback()" placeholder="Buscar saldo" aria-label="Buscar saldo" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" /></template></Column>
-              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 12rem; min-width: 12rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" variant="outlined" rounded size="small" aria-label="Detalhes da conta" @click="openAccount(data)" /><Button aria-label="Cobrança" v-tooltip.top="'Cobrança'" icon="pi pi-comment" variant="outlined" rounded size="small" @click="collectionAccount = data" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
+              <Column header="Ações" :exportable="false" headerClass="billing-actions-cell" bodyClass="billing-actions-cell" style="width: 12rem; min-width: 12rem"><template #body="{ data }"><div class="flex w-full items-center justify-center gap-2"><Button icon="pi pi-bars" variant="outlined" rounded size="small" aria-label="Detalhes da conta" @click="openAccount(data)" /><Button aria-label="Cobrança" v-tooltip.top="'Cobrança'" icon="pi pi-comment" variant="outlined" rounded size="small" @click="collectionAccount = data" /><Button icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" aria-label="Inativar conta" v-tooltip.top="'Inativar conta'" :disabled="busy || data.status === 'Inativo'" @click="accountToDeactivate = data" /></div></template></Column>
             </DataTable>
           </TabPanel>
         </TabPanels>
@@ -67,13 +68,13 @@
   <Dialog :draggable="false" :visible="!!accountToDeactivate" @update:visible="accountToDeactivate = null" header="Confirmar inativação" modal class="app-dialog" :style="{ width: '450px', maxWidth: '95vw' }">
     <div class="app-confirm-body">
       <i class="pi pi-exclamation-triangle app-confirm-icon" />
-      <div v-if="accountToDeactivate" class="app-dialog-section"><span>Tem certeza que deseja inativar a conta <b>{{ accountToDeactivate.id }}</b> do paciente <b>{{ accountToDeactivate.patientName }}</b>?</span></div>
+      <div v-if="accountToDeactivate" class="app-dialog-section"><span>Tem certeza que deseja inativar a conta <b>{{ accountToDeactivate.code }}</b> do paciente <b>{{ accountToDeactivate.patientName }}</b>?</span></div>
     </div>
-    <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="accountToDeactivate = null" /><Button label="Inativar" icon="pi pi-check" severity="danger" @click="confirmDeactivate" /></template>
+    <template #footer><Button label="Cancelar" icon="pi pi-times" text :disabled="busy" @click="accountToDeactivate = null" /><Button label="Inativar" icon="pi pi-check" severity="danger" :loading="busy" :disabled="busy" @click="confirmDeactivate" /></template>
   </Dialog>
   <Dialog :draggable="false" v-model:visible="detailVisible" header="Detalhes da conta" modal class="app-dialog p-fluid" :style="{ width: '1180px', maxWidth: '95vw' }">
     <div v-if="selectedAccount" class="app-dialog-body app-dialog-section">
-      <AppDetailSummary :label="'Conta ' + selectedAccount.id" :title="selectedAccount.patientName" icon="pi-receipt" :status="selectedAccount.status" :items="[
+      <AppDetailSummary :label="'Conta ' + selectedAccount.code" :title="selectedAccount.patientName" icon="pi-receipt" :status="selectedAccount.status" :items="[
         { label: 'Data geração', value: formatDate(selectedAccount.generatedAt) },
         { label: 'Atendimento', value: selectedAccount.attendanceId },
         { label: 'Telefone', value: selectedAccount.phone }
@@ -94,23 +95,23 @@
       <section class="quotation-procedures-section">
       <div class="quotation-procedures-header"><h3 class="billing-section-title"><i class="pi pi-wallet" aria-hidden="true" />Pagamentos</h3><span class="billing-section-caption"> {{ selectedAccount.payments.length === 1 ? 'À vista' : `Parcelado em ${selectedAccount.payments.length} vezes` }}</span></div>
       <DataTable :value="selectedAccount.payments" class="quotation-procedures-table billing-detail-table" scrollable>
-        <Column header="Parcela"><template #body="{ index }">{{ index + 1 }}/{{ selectedAccount.payments.length }}</template></Column>
+        <Column header="Parcela"><template #body="{ data }">{{ data.installmentNumber }}/{{ selectedAccount.payments.length }}</template></Column>
         <Column header="Status"><template #body="{ data }"><AppStatusBadge :value="data.status" /></template></Column>
         <Column field="dueDate" header="Vencimento"><template #body="{ data }">{{ formatDate(data.dueDate) }}<small v-if="selectedAccount.status !== 'Inativo' && isOverdue(data, today)" class="billing-overdue block">Vencido</small></template></Column>
         <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" header="Valor"><template #body="{ data }">{{ currency(data.amount) }}</template></Column>
-        <Column headerClass="app-actions-cell" bodyClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 14rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" label="Confirmar pagamento" icon="pi pi-check-circle" class="billing-confirm-payment" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
+        <Column headerClass="app-actions-cell" bodyClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 14rem"><template #body="{ data }"><Button v-if="data.status === 'Pendente' && selectedAccount.status === 'Faturado'" :disabled="busy" label="Confirmar pagamento" icon="pi pi-check-circle" class="billing-confirm-payment" @click="paymentToConfirm = data" /><span v-else class="billing-muted">{{ data.status === 'Pago' ? 'Recebido' : 'Indisponível' }}</span></template></Column>
       </DataTable>
       </section>
     </div>
-    <template #footer><Button label="Fechar" icon="pi pi-times" text @click="detailVisible = false" /><Button v-if="selectedAccount?.status === 'Pendente'" label="Faturar conta" icon="pi pi-check" @click="invoiceVisible = true" /></template>
+    <template #footer><Button label="Fechar" icon="pi pi-times" text @click="detailVisible = false" /><Button v-if="selectedAccount?.status === 'Pendente'" label="Faturar conta" icon="pi pi-check" :disabled="busy" @click="invoiceVisible = true" /></template>
   </Dialog>
   <Dialog :draggable="false" :visible="!!paymentToConfirm" @update:visible="paymentToConfirm = null" header="Confirmar recebimento" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
     <div class="app-confirm-body" v-if="paymentToConfirm"><i class="pi pi-exclamation-triangle app-confirm-icon" /><div>Confirma o recebimento de <strong>{{ currency(paymentToConfirm.amount) }}</strong>, referente ao vencimento {{ formatDate(paymentToConfirm.dueDate) }}?</div></div>
-    <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="paymentToConfirm = null" /><Button label="Confirmar pagamento" icon="pi pi-check" @click="confirmPayment" /></template>
+    <template #footer><Button label="Cancelar" icon="pi pi-times" text :disabled="busy" @click="paymentToConfirm = null" /><Button label="Confirmar pagamento" icon="pi pi-check" :loading="busy" :disabled="busy" @click="confirmPayment" /></template>
   </Dialog>
   <Dialog :draggable="false" v-model:visible="invoiceVisible" header="Faturar conta" modal class="app-dialog" :style="{ width: '460px', maxWidth: '95vw' }">
-    <div class="app-confirm-body"><i class="pi pi-exclamation-triangle app-confirm-icon" /><div>Confirma o faturamento da conta {{ selectedAccount?.id }}?</div></div>
-    <template #footer><Button label="Cancelar" icon="pi pi-times" text @click="invoiceVisible = false" /><Button label="Confirmar faturamento" icon="pi pi-check" @click="confirmInvoice" /></template>
+    <div class="app-confirm-body"><i class="pi pi-exclamation-triangle app-confirm-icon" /><div>Confirma o faturamento da conta {{ selectedAccount?.code }}?</div></div>
+    <template #footer><Button label="Cancelar" icon="pi pi-times" text :disabled="busy" @click="invoiceVisible = false" /><Button label="Confirmar faturamento" icon="pi pi-check" :loading="busy" :disabled="busy" @click="confirmInvoice" /></template>
   </Dialog>
   <Dialog :draggable="false" :visible="!!collectionAccount" @update:visible="collectionAccount = null" header="Cobrança do paciente" modal class="app-dialog" :style="{ width: '580px', maxWidth: '95vw' }">
     <div class="app-dialog-body app-dialog-section" v-if="collectionAccount">
@@ -121,17 +122,13 @@
     </div>
     <template #footer><Button label="Fechar" icon="pi pi-times" text @click="collectionAccount = null" /><Button label="Copiar mensagem" icon="pi pi-copy" @click="copyCollection" /></template>
   </Dialog>
-    <ContextMenu ref="accountMenu" :model="accountMenuItems" />
-    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.patientName : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
-import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
 import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
-import ContextMenu from 'primevue/contextmenu'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
@@ -149,9 +146,28 @@ import { useToast } from 'primevue/usetoast'
 import AppTableToolbar from '../components/AppTableToolbar.vue'
 import AppLayout from '../components/AppLayout.vue'
 import { accountTotal, outstandingTotal, overdueTotal, isOverdue, type AccountStatus, type PatientAccount, type Payment } from '../../core/entities/Billing'
-import { accounts } from '../../infrastructure/services/BillingDemo'
+import { AccountService, type AccountApiStatus, type ApiAccount } from '../../infrastructure/services/AccountService'
+import { getApiErrorMessage } from '../../infrastructure/http/api'
+import axios from 'axios'
 
-
+const statusFromApi: Record<AccountApiStatus, AccountStatus> = { PENDENTE: 'Pendente', FATURADO: 'Faturado', INATIVO: 'Inativo' }
+const toCents = (value: number) => Math.round(value * 100)
+const fromApi = (data: ApiAccount): PatientAccount => ({
+  id: data.id,
+  code: data.code,
+  patientId: data.patientId,
+  patientName: data.patientName,
+  phone: data.patientPhone ?? '—',
+  attendanceId: data.appointmentCode ?? '—',
+  generatedAt: data.generatedAt,
+  status: statusFromApi[data.status],
+  procedures: data.procedures.map(item => ({ id: item.id, name: item.description, quantity: item.quantity, unitAmount: toCents(item.unitValue) })),
+  payments: data.payments.map(item => ({ id: item.id, installmentNumber: item.installmentNumber, dueDate: item.dueDate, amount: toCents(item.value), status: item.status === 'PAGO' ? 'Pago' : 'Pendente' }))
+})
+const accounts = ref<PatientAccount[]>([])
+const loading = ref(false)
+const busy = ref(false)
+const listError = ref('')
 const statuses: AccountStatus[] = ['Faturado', 'Pendente', 'Inativo']
 const search = ref('')
 const dashboardExpanded = ref(false)
@@ -168,11 +184,11 @@ const localToday = () => {
 }
 const today = ref(localToday())
 let timer: ReturnType<typeof setInterval>
-onMounted(() => { timer = setInterval(() => { today.value = localToday() }, 30000) })
+onMounted(() => { loadAccounts(); timer = setInterval(() => { today.value = localToday() }, 30000) })
 onUnmounted(() => clearInterval(timer))
 const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const matches = (account: PatientAccount, query: string) => normalize([
-  account.id, account.patientName, account.patientId, account.phone, account.status,
+  account.code, account.patientName, account.phone, account.status,
   formatDate(account.generatedAt), currency(accountTotal(account)), currency(outstandingTotal(account)),
   formatDate(oldestDue(account)), currency(overdueTotal(account, today.value)),
 ].join(' ')).includes(normalize(query.trim()))
@@ -193,8 +209,8 @@ const totalOverdue = computed(() => debtors.value.reduce((sum, account) => sum +
 const currency = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const formatDate = (date: string) => date.split('-').reverse().join('/')
 const columnFilter = () => ({ value: null, matchMode: FilterMatchMode.CONTAINS })
-const accountFilters = ref({ generationLabel: columnFilter(), totalLabel: columnFilter(), balanceLabel: columnFilter(), status: { value: null, matchMode: FilterMatchMode.EQUALS }, id: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS } })
-const debtorFilters = ref({ dueLabel: columnFilter(), overdueLabel: columnFilter(), balanceLabel: columnFilter(), id: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS }, phone: { value: null, matchMode: FilterMatchMode.CONTAINS } })
+const accountFilters = ref({ generationLabel: columnFilter(), totalLabel: columnFilter(), balanceLabel: columnFilter(), status: { value: null, matchMode: FilterMatchMode.EQUALS }, code: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS } })
+const debtorFilters = ref({ dueLabel: columnFilter(), overdueLabel: columnFilter(), balanceLabel: columnFilter(), code: { value: null, matchMode: FilterMatchMode.CONTAINS }, patientName: { value: null, matchMode: FilterMatchMode.CONTAINS }, phone: { value: null, matchMode: FilterMatchMode.CONTAINS } })
 function clearFilters() {
   search.value = ''
   Object.values(accountFilters.value).forEach(filter => filter.value = null)
@@ -206,28 +222,68 @@ function openAccount(account: PatientAccount) {
   selectedAccount.value = accounts.value.find(item => item.id === account.id) ?? null
   detailVisible.value = !!selectedAccount.value
 }
-function confirmDeactivate() {
-  const account = accounts.value.find(item => item.id === accountToDeactivate.value?.id)
-  if (!account || account.status === 'Inativo') return
-  account.status = 'Inativo'
-  accountToDeactivate.value = null
-  toast.add({ severity: 'success', summary: 'Conta inativada', life: 3000 })
+async function loadAccounts() {
+  loading.value = true
+  listError.value = ''
+  try { accounts.value = (await AccountService.list()).map(fromApi) }
+  catch (error) { listError.value = getApiErrorMessage(error) }
+  finally { loading.value = false }
 }
-function confirmPayment() {
-  if (!paymentToConfirm.value || selectedAccount.value?.status !== 'Faturado' || paymentToConfirm.value.status !== 'Pendente') return
-  paymentToConfirm.value.status = 'Pago'
-  paymentToConfirm.value = null
-  toast.add({ severity: 'success', summary: 'Pagamento registrado', detail: 'Saldo e contas vencidas atualizados nesta demonstração.', life: 3500 })
+function replaceAccount(data: ApiAccount) {
+  const saved = fromApi(data)
+  const index = accounts.value.findIndex(item => item.id === saved.id)
+  if (index < 0) accounts.value.unshift(saved)
+  else accounts.value.splice(index, 1, saved)
+  if (selectedAccount.value?.id === saved.id) selectedAccount.value = saved
 }
-function confirmInvoice() {
-  if (selectedAccount.value?.status !== 'Pendente') return
-  selectedAccount.value.status = 'Faturado'
-  invoiceVisible.value = false
-  toast.add({ severity: 'success', summary: 'Conta faturada', life: 3000 })
+async function showOperationError(error: unknown) {
+  toast.add({ severity: 'error', summary: 'Operação não concluída', detail: getApiErrorMessage(error), life: 6000 })
+  if (axios.isAxiosError(error) && [404, 409].includes(error.response?.status ?? 0)) {
+    await loadAccounts()
+    const current = selectedAccount.value
+    selectedAccount.value = current ? accounts.value.find(item => item.id === current.id) ?? null : null
+    if (!selectedAccount.value) detailVisible.value = false
+  }
+}
+async function confirmDeactivate() {
+  const target = accountToDeactivate.value
+  if (busy.value || !target || target.status === 'Inativo') return
+  busy.value = true
+  try {
+    await AccountService.inactivate(target.id)
+    const account = accounts.value.find(item => item.id === target.id)
+    if (account) account.status = 'Inativo'
+    accountToDeactivate.value = null
+    toast.add({ severity: 'success', summary: 'Conta inativada', life: 3000 })
+  } catch (error) { accountToDeactivate.value = null; await showOperationError(error) }
+  finally { busy.value = false }
+}
+async function confirmPayment() {
+  const payment = paymentToConfirm.value
+  const account = selectedAccount.value
+  if (busy.value || !payment || account?.status !== 'Faturado' || payment.status !== 'Pendente') return
+  busy.value = true
+  try {
+    replaceAccount(await AccountService.pay(account.id, payment.id))
+    paymentToConfirm.value = null
+    toast.add({ severity: 'success', summary: 'Pagamento registrado', life: 3000 })
+  } catch (error) { paymentToConfirm.value = null; await showOperationError(error) }
+  finally { busy.value = false }
+}
+async function confirmInvoice() {
+  const account = selectedAccount.value
+  if (busy.value || account?.status !== 'Pendente') return
+  busy.value = true
+  try {
+    replaceAccount(await AccountService.invoice(account.id))
+    invoiceVisible.value = false
+    toast.add({ severity: 'success', summary: 'Conta faturada', life: 3000 })
+  } catch (error) { invoiceVisible.value = false; await showOperationError(error) }
+  finally { busy.value = false }
 }
 const collectionMessage = computed(() => {
   const account = collectionAccount.value
-  return account ? `Olá, ${account.patientName}! Identificamos um valor pendente de ${currency(overdueTotal(account, today.value))} referente às parcelas vencidas da conta ${account.id}. Poderia entrar em contato com a clínica para combinarmos a regularização? Caso já tenha pago, por favor nos envie o comprovante. Obrigado!` : ''
+  return account ? `Olá, ${account.patientName}! Identificamos um valor pendente de ${currency(overdueTotal(account, today.value))} referente às parcelas vencidas da conta ${account.code}. Poderia entrar em contato com a clínica para combinarmos a regularização? Caso já tenha pago, por favor nos envie o comprovante. Obrigado!` : ''
 })
 async function copyCollection() {
   try { await navigator.clipboard.writeText(collectionMessage.value); toast.add({ severity: 'success', summary: 'Mensagem copiada', life: 3000 }) }
@@ -235,40 +291,6 @@ async function copyCollection() {
 }
 
 const selectedGridAccount = ref<PatientAccount | null>(null);
-const contextMenuSelection = ref<PatientAccount | null>(null);
-const accountMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
-const accountMenuItems = [{ label: 'Excluir permanentemente', icon: 'pi pi-trash', command: () => requestPermanentDelete() }];
-const onAccountContextMenu = (event: { originalEvent: Event; data: PatientAccount }) => {
-    event.originalEvent.preventDefault();
-    selectedGridAccount.value = event.data;
-    contextMenuSelection.value = event.data;
-    if (event.data.status === 'Inativo') accountMenu.value?.show(event.originalEvent);
-};
-const recordToDelete = ref<PatientAccount | null>(null);
-const permanentlyDeleting = ref(false);
-const requestPermanentDelete = () => {
-    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
-};
-const permanentlyDelete = async () => {
-    const target = recordToDelete.value;
-    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
-    permanentlyDeleting.value = true;
-    try {
-        // This module currently stores demonstration records only.
-        accounts.value = accounts.value.filter(item => item.id !== target.id);
-        if (selectedAccount.value?.id === target.id) selectedAccount.value = null;
-        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
-        detailVisible.value = false;
-        if (selectedGridAccount.value?.id === target.id) selectedGridAccount.value = null;
-        if (collectionAccount.value?.id === target.id) collectionAccount.value = null;
-        recordToDelete.value = null;
-        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
-    } catch (error: unknown) {
-        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: error instanceof Error ? error.message : 'Tente novamente.', life: 5000 });
-    } finally {
-        permanentlyDeleting.value = false;
-    }
-};
 
 </script>
 

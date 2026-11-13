@@ -19,10 +19,17 @@
                     label="Adicionar atendimento"
                     size="small"
                     class="!bg-[var(--p-primary-500)] hover:!bg-[var(--p-primary-600)] !border-none !px-3 !py-1.5 !font-semibold !text-[var(--p-surface-0)] transition-all h-9 flex items-center justify-center !rounded-lg shadow-md"
+                    :disabled="saving || mutationPending"
                     @click="openAddDialog"
                 />
             </div>
 
+            <div class="px-5 pt-3 text-sm" aria-live="polite">
+                <span v-if="loading || detailsLoading">Carregando agenda...</span>
+                <span v-else-if="loadError" role="alert">{{ loadError }} <Button label="Tentar novamente" text @click="loadAppointments" /></span>
+                <span v-else-if="!appointments.length">Nenhum atendimento neste período.</span>
+                <span v-else>Atendimentos do período exibido.</span>
+            </div>
             <div class="schedule-calendar-wrapper flex-1 min-h-0 p-4">
                 <FullCalendar :options="calendarOptions">
                     <template #eventContent="slotProps">
@@ -39,24 +46,24 @@
         </div>
     </AppLayout>
 
-    <Dialog :visible="!!appointmentToDelete" @update:visible="value => { if (!value) appointmentToDelete = null; }" modal :draggable="false" header="Confirmar exclusão do agendamento" class="app-dialog" :style="{ width: '640px', maxWidth: '95vw' }">
+    <Dialog :visible="!!appointmentToDelete" @update:visible="value => { if (!value) appointmentToDelete = null; }" modal :draggable="false" header="Confirmar cancelamento do atendimento" class="app-dialog" :style="{ width: '640px', maxWidth: '95vw' }">
         <div class="app-confirm-body" v-if="appointmentToDelete">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
-                <p>Deseja excluir o agendamento <strong>{{ appointmentToDelete.code }}</strong> de <strong>{{ appointmentToDelete.patientName }}</strong>?</p>
+                <p>Deseja cancelar o atendimento <strong>{{ appointmentToDelete.code }}</strong> de <strong>{{ appointmentToDelete.patientName }}</strong>?</p>
                 <p>{{ new Date(appointmentToDelete.start).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }}</p>
-                <p>O agendamento será removido da agenda. Esta ação não pode ser desfeita.</p>
+                <p>O atendimento continuará na agenda com status Cancelado.</p>
             </div>
         </div>
-        <template #footer><Button label="Cancelar" text @click="appointmentToDelete = null" /><Button label="Excluir agendamento" icon="pi pi-trash" severity="danger" @click="deleteSelectedAppointment" /></template>
+        <template #footer><Button label="Voltar" text :disabled="mutationPending" @click="appointmentToDelete = null" /><Button label="Cancelar atendimento" icon="pi pi-trash" severity="danger" :loading="mutationPending" :disabled="mutationPending" @click="deleteSelectedAppointment" /></template>
     </Dialog>
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '1180px' }" :header="appointmentDialogTitle" :modal="true" class="app-dialog p-fluid">
+    <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '1180px' }" :header="appointmentDialogTitle" :modal="true" :closable="!saving" :closeOnEscape="!saving" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <AppDetailSummary v-if="dialogMode === 'edit'" :label="'Atendimento ' + currentAppointment.code" :title="currentAppointment.patientName" icon="pi-calendar" :status="currentAppointment.status" :items="[{ label: 'CPF', value: currentAppointment.patientCpf }]" />
             <p v-if="currentAppointment.status === 'Realizado'" class="text-sm text-[var(--p-surface-600)]">Atendimento realizado. A conta está disponível no Faturamento; os dados deste atendimento são somente para consulta.</p>
-            <fieldset :disabled="currentAppointment.status === 'Realizado'" :inert="currentAppointment.status === 'Realizado'" class="border-0 p-0 m-0 min-w-0 app-dialog-section">
+            <fieldset :disabled="saving || currentAppointment.status === 'Realizado'" :inert="currentAppointment.status === 'Realizado'" class="border-0 p-0 m-0 min-w-0 app-dialog-section">
             <AppDetailSection title="Informações gerais" icon="pi-info-circle">
                         <div class="grid grid-cols-12 gap-4 pt-2">
                             <div class="app-field col-span-12 md:col-span-4">
@@ -77,6 +84,8 @@
                                     inputId="appointment-patient"
                                     v-model="selectedPatient"
                                     :suggestions="patientSuggestions"
+                                    :loading="patientsLoading"
+                                    :emptySearchMessage="patientsLoading ? 'Carregando pacientes...' : patientsError ? 'Não foi possível carregar os pacientes.' : 'Nenhum paciente ativo encontrado.'"
                                     optionLabel="name"
                                     placeholder="Buscar paciente cadastrado"
                                     dropdown
@@ -89,6 +98,11 @@
                                     @item-select="selectPatientFromSearch"
                                 />
                                 <small v-if="submitted && !currentAppointment.patientName" class="app-field-error">O nome do paciente é obrigatório.</small>
+                                <small v-if="patientsLoading" role="status">Buscando pacientes cadastrados...</small>
+                                <div v-else-if="patientsError" role="alert" class="app-field-error">
+                                    {{ patientsError }}
+                                    <Button label="Buscar pacientes novamente" text size="small" @click="loadPatients" />
+                                </div>
                             </div>
 
                             <div class="app-field col-span-12 md:col-span-4">
@@ -122,11 +136,15 @@
                                 <Select
                                     inputId="appointment-status"
                                     v-model="currentAppointment.status"
-                                    :options="currentAppointment.status === 'Realizado' ? statusOptions : editableStatusOptions"
+                                    :options="editableStatusOptions.includes(currentAppointment.status) ? editableStatusOptions : [...editableStatusOptions, currentAppointment.status]"
                                     :invalid="submitted && !currentAppointment.status"
                                     class="w-full"
                                 />
                                 <small v-if="submitted && !currentAppointment.status" class="app-field-error">O status é obrigatório.</small>
+                            </div>
+                            <div class="app-field col-span-12">
+                                <label for="appointment-notes" class="app-field-label">Observações</label>
+                                <textarea id="appointment-notes" v-model="currentAppointment.notes" maxlength="4000" rows="3" class="w-full border rounded-lg p-3" />
                             </div>
                         </div>
                     </AppDetailSection>
@@ -185,13 +203,15 @@
 
                     <Column headerClass="app-numeric-cell" bodyClass="app-numeric-cell" field="value" header="Valor" style="width: 10rem">
                         <template #body="{ data }">
-                            <span class="quotation-procedure-readonly-field">{{ data.procedureId ? formatCurrency(data.value) : '' }}</span>
+                            <span v-if="data.procedureId" class="quotation-procedure-readonly-field">{{ formatCurrency(data.value) }}</span>
+                            <InputText v-else v-model.number="data.value" type="number" min="0" max="9999999999.99" step="0.01" aria-label="Valor do procedimento avulso" class="w-full" />
                         </template>
                     </Column>
 
                     <Column field="classification" header="Classificacao" style="width: 12rem">
                         <template #body="{ data }">
-                            <span class="quotation-procedure-readonly-field">{{ data.classification }}</span>
+                            <span v-if="data.procedureId" class="quotation-procedure-readonly-field">{{ data.classification }}</span>
+                            <InputText v-else v-model="data.classification" maxlength="255" aria-label="Classificação do procedimento avulso" class="w-full" />
                         </template>
                     </Column>
 
@@ -214,18 +234,21 @@
         </div>
 
         <template #footer>
-            <Button label="Cancelar" icon="pi pi-times" text @click="closeAppointmentDialog" />
-            <Button v-if="currentAppointment.status !== 'Realizado'" label="Salvar" icon="pi pi-check" @click="saveAppointment" />
+            <Button label="Cancelar" icon="pi pi-times" :disabled="saving" text @click="closeAppointmentDialog" />
+            <Button v-if="currentAppointment.status !== 'Realizado'" label="Salvar" icon="pi pi-check" :loading="saving" :disabled="saving || mutationPending" @click="saveAppointment" />
         </template>
     </Dialog>
 </template>
 
 <script setup lang="ts">
 import { findAppointmentConflict } from '../../infrastructure/services/ScheduleValidation';
-import { completeAppointment } from '../../infrastructure/services/AttendanceDemo';
 import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppDetailSection from '../components/AppDetailSection.vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import axios from 'axios';
+import { AppointmentService } from '../../infrastructure/services/AppointmentService';
+import type { ApiAppointment, ApiAppointmentStatus, AppointmentInput } from '../../infrastructure/services/AppointmentService';
+import { getApiErrorMessage } from '../../infrastructure/http/api';
 import FullCalendar from '@fullcalendar/vue3';
 import type { CalendarOptions, DateSelectInfo, EventClickInfo, EventDropInfo, EventInput, EventResizeDoneInfo } from '@fullcalendar/vue3';
 import classicThemePlugin from '@fullcalendar/vue3/themes/classic';
@@ -247,13 +270,14 @@ import InputMask from 'primevue/inputmask';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
-import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
+import { PatientService } from '../../infrastructure/services/PatientService';
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
 import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';
 import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
 import AppLayout from '../components/AppLayout.vue';
 
-import { appointments, type Appointment, type AppointmentProcedure, type AppointmentStatus } from '../../infrastructure/services/SchedulingDemo';
+type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Realizado' | 'Cancelado';
+const apiStatuses: Record<AppointmentStatus, ApiAppointmentStatus> = { Pendente: 'PENDENTE', Confirmado: 'CONFIRMADO', Realizado: 'REALIZADO', Cancelado: 'CANCELADO' };
 type DialogMode = 'add' | 'edit';
 
 interface PatientOption {
@@ -268,6 +292,31 @@ interface ProcedureOption {
     description: string;
     value: number;
     classification: string;
+}
+
+interface AppointmentProcedure {
+    id?: number | null;
+    rowKey: string;
+    procedureId: number | null;
+    procedureIdText: string;
+    description: string;
+    value: number;
+    classification: string;
+}
+
+interface Appointment {
+    title: string | null;
+    professionalUserId: number | null;
+    notes: string | null;
+    id: string;
+    code: string;
+    status: AppointmentStatus;
+    start: string;
+    end: string;
+    patientId: number | null;
+    patientName: string;
+    patientCpf: string;
+    procedures: AppointmentProcedure[];
 }
 
 interface AutocompleteCompleteEvent {
@@ -290,11 +339,78 @@ interface ScheduleMenuItem {
 }
 
 const editableStatusOptions: AppointmentStatus[] = ['Pendente', 'Confirmado'];
-const statusOptions: AppointmentStatus[] = [...editableStatusOptions, 'Realizado'];
+const statusOptions: AppointmentStatus[] = ['Pendente', 'Confirmado', 'Realizado', 'Cancelado'];
 const appointmentToDelete = ref<Appointment | null>(null);
+const clinicTimeZone = import.meta.env.VITE_CLINIC_TIMEZONE || 'America/Sao_Paulo';
 const toast = useToast();
+const appointments = ref<Appointment[]>([]);
+const loading = ref(false);
+const loadError = ref('');
+const saving = ref(false);
+const mutationPending = ref(false);
+const detailsLoading = ref(false);
+let detailsSequence = 0;
+let listController: AbortController | undefined;
+let visibleRange: { start: string; end: string } | undefined;
+
+const fromApi = (item: ApiAppointment): Appointment => ({
+    ...item,
+    id: String(item.id),
+    patientCpf: item.patientCpf ?? '',
+    status: statusOptions.find(status => apiStatuses[status] === item.status) ?? 'Pendente',
+    procedures: item.procedures.map((procedure, index) => ({
+        ...procedure,
+        rowKey: String(item.id) + '-item-' + index,
+        procedureIdText: procedure.procedureCode ?? formatDisplayId(procedure.procedureId),
+    })),
+});
+const withSeconds = (value: string) => value.length === 16 ? value + ':00' : value;
+const toApi = (item: Appointment): AppointmentInput => ({
+    start: withSeconds(item.start), end: withSeconds(item.end), status: apiStatuses[item.status],
+    patientId: item.patientId, patientName: item.patientName.trim(), patientCpf: normalizeDigits(item.patientCpf) || null,
+    title: item.title, professionalUserId: item.professionalUserId, notes: item.notes || null,
+    procedures: item.procedures.map(procedure => procedure.id == null && procedure.procedureId != null
+        ? { procedureId: procedure.procedureId }
+        : { id: procedure.id, procedureId: procedure.procedureId, description: procedure.description.trim(), value: Number(procedure.value), classification: procedure.classification }),
+});
+const loadAppointments = async () => {
+    if (!visibleRange) return true;
+    listController?.abort();
+    const controller = new AbortController();
+    listController = controller;
+    loading.value = true;
+    loadError.value = '';
+    try {
+        const items = await AppointmentService.list(visibleRange.start, visibleRange.end, controller.signal);
+        if (!controller.signal.aborted) appointments.value = items.map(fromApi);
+        return true;
+    } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return true;
+        loadError.value = getApiErrorMessage(error);
+        return false;
+    } finally {
+        if (listController === controller) loading.value = false;
+    }
+};
+const afterMutation = async (message: string, item?: ApiAppointment) => {
+    if (item) {
+        const index = appointments.value.findIndex(existing => existing.id === String(item.id));
+        if (index >= 0) appointments.value.splice(index, 1, fromApi(item));
+        else appointments.value.push(fromApi(item));
+    }
+    toast.add({ severity: 'success', summary: 'Agenda atualizada', detail: message, life: 3000 });
+    if (!await loadAppointments()) toast.add({ severity: 'warn', summary: 'Alteração salva', detail: 'A atualização da lista falhou. Recarregue a agenda sem repetir a operação.', life: 6000 });
+};
+const handleMutationError = async (error: unknown) => {
+    showError(getApiErrorMessage(error));
+    if (axios.isAxiosError(error) && [404, 409].includes(error.response?.status ?? 0)) await loadAppointments();
+};
 
 const registeredPatients = ref<PatientOption[]>([]);
+const patientsLoading = ref(false);
+const patientsError = ref('');
+let patientsRequest: Promise<void> | undefined;
+let patientSearchQuery = '';
 const patientSuggestions = ref<PatientOption[]>([]);
 const selectedPatient = ref<PatientOption | string | null>(null);
 const registeredProcedures = ref<ProcedureOption[]>([]);
@@ -338,7 +454,7 @@ const calendarEvents = computed<EventInput[]>(() => appointments.value.map(appoi
     title: appointment.patientName,
     start: appointment.start,
     end: appointment.end,
-    editable: appointment.status !== 'Realizado',
+    editable: appointment.status !== 'Realizado' && !mutationPending.value && !saving.value,
     classNames: [`schedule-event-${appointment.status.toLowerCase()}`],
     extendedProps: {
         code: appointment.code,
@@ -349,6 +465,14 @@ const calendarEvents = computed<EventInput[]>(() => appointments.value.map(appoi
 const calendarOptions = computed<CalendarOptions>(() => ({
     plugins: [classicThemePlugin, dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin],
     locale: ptBrLocale,
+    timeZone: clinicTimeZone,
+    datesSet: (info) => {
+        const nextRange = { start: withSeconds(dateToInputValue(info.start)), end: withSeconds(dateToInputValue(info.end)) };
+        if (visibleRange?.start === nextRange.start && visibleRange.end === nextRange.end) return;
+        visibleRange = nextRange;
+        appointments.value = [];
+        void loadAppointments();
+    },
     initialView: 'timeGridWeek',
     height: '100%',
     selectable: true,
@@ -356,8 +480,9 @@ const calendarOptions = computed<CalendarOptions>(() => ({
     nowIndicator: true,
     allDaySlot: false,
     eventBeforeClass: 'schedule-event-native-marker',
-    slotMinTime: '07:00:00',
-    slotMaxTime: '20:00:00',
+    slotMinTime: '00:00:00',
+    slotMaxTime: '24:00:00',
+    scrollTime: '07:00:00',
     slotDuration: '00:30:00',
     eventTimeFormat: {
         hour: '2-digit',
@@ -389,6 +514,9 @@ function getEmptyAppointment(): Appointment {
     return {
         id: '',
         code: '',
+        title: null,
+        professionalUserId: null,
+        notes: null,
         status: 'Pendente',
         start: '',
         end: '',
@@ -412,25 +540,17 @@ const formatCpf = (value?: string | null) => {
 const formatDisplayId = (id?: number | null) => id ? `#${id.toString().padStart(7, '0')}` : '';
 
 const dateToInputValue = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: clinicTimeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    }).formatToParts(date);
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)!.value;
+    return `${part('year')}-${part('month')}-${part('day')}T${part('hour')}:${part('minute')}:${part('second')}`;
 };
 
 const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60_000);
 
-const getNextAppointmentCode = () => {
-    const maxCode = appointments.value.reduce((max, appointment) => {
-        const number = Number(normalizeDigits(appointment.code));
-        return Number.isFinite(number) ? Math.max(max, number) : max;
-    }, 0);
 
-    return `#${String(maxCode + 1).padStart(7, '0')}`;
-};
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -449,6 +569,7 @@ const getStatusDotStyle = (status: AppointmentStatus | string) => {
     switch (normalizedStatus) {
         case 'Realizado': return 'background-color: #7e22ce;';
         case 'Confirmado': return 'background-color: var(--p-primary-1000);';
+        case 'Cancelado': return 'background-color: #b91c1c;';
         case 'Pendente':
         default:
             return 'background-color: var(--p-primary-25);';
@@ -475,24 +596,45 @@ const toProcedureOption = (procedure: ApiProcedure): ProcedureOption => ({
     classification: procedure.type ?? ''
 });
 
-const loadPatients = async () => {
-    try {
+const filterPatientSuggestions = () => {
+    const query = patientSearchQuery.trim().toLowerCase();
+    const queryDigits = normalizeDigits(query);
+    patientSuggestions.value = registeredPatients.value.filter(patient =>
+        !query || patient.name.toLowerCase().includes(query) ||
+        (!!queryDigits && normalizeDigits(patient.cpf).includes(queryDigits))
+    );
+};
+
+const loadPatients = (): Promise<void> => {
+    if (patientsRequest) return patientsRequest;
+    patientsLoading.value = true;
+    patientsError.value = '';
+    patientsRequest = (async () => {
+      try {
         const patients = await PatientService.list();
         registeredPatients.value = patients
-            .filter(patient => patient.statusCode !== 1)
+            // Older responses omit the default active status, as in patient registration.
+            .filter(patient => (patient.statusCode ?? 0) === 0)
             .map(toPatientOption)
             .filter(patient => patient.name);
-        patientSuggestions.value = registeredPatients.value;
-    } catch (error: unknown) {
-        showError(getPatientServiceErrorMessage(error));
-    }
+        filterPatientSuggestions();
+      } catch (error: unknown) {
+        registeredPatients.value = [];
+        patientSuggestions.value = [];
+        patientsError.value = getApiErrorMessage(error);
+      } finally {
+        patientsLoading.value = false;
+        patientsRequest = undefined;
+      }
+    })();
+    return patientsRequest;
 };
 
 const loadProcedures = async () => {
     try {
         const procedures = await ProcedureService.list();
         registeredProcedures.value = procedures
-            .filter(procedure => procedure.statusCode !== 1)
+            .filter(procedure => (procedure.statusCode ?? 0) === 0)
             .map(toProcedureOption)
             .filter(procedure => procedure.id || procedure.description);
         procedureDescriptionSuggestions.value = registeredProcedures.value;
@@ -501,19 +643,14 @@ const loadProcedures = async () => {
     }
 };
 
-const searchPatients = (event: AutocompleteCompleteEvent) => {
-    const query = event.query?.trim().toLowerCase() ?? '';
-    const queryDigits = normalizeDigits(query);
-
-    patientSuggestions.value = registeredPatients.value.filter(patient => {
-        const patientName = patient.name.toLowerCase();
-        const patientCpf = normalizeDigits(patient.cpf);
-
-        return !query || patientName.includes(query) || (queryDigits && patientCpf.includes(queryDigits));
-    });
+const searchPatients = async (event: AutocompleteCompleteEvent) => {
+    patientSearchQuery = event.query ?? '';
+    if (patientsRequest) await patientsRequest;
+    filterPatientSuggestions();
 };
 
 const applyPatientToAppointment = (patient: PatientOption) => {
+    if (currentAppointment.value.patientId !== patient.id) currentAppointment.value.title = patient.name;
     currentAppointment.value.patientId = patient.id;
     currentAppointment.value.patientName = patient.name;
     currentAppointment.value.patientCpf = patient.cpf;
@@ -521,6 +658,7 @@ const applyPatientToAppointment = (patient: PatientOption) => {
 };
 
 const clearPatientFields = () => {
+    currentAppointment.value.title = null;
     currentAppointment.value.patientId = null;
     currentAppointment.value.patientName = '';
     currentAppointment.value.patientCpf = '';
@@ -542,7 +680,6 @@ const onPatientCpfInput = (value: string | null | undefined) => {
     currentAppointment.value.patientCpf = nextValue;
 
     if (!normalizeDigits(nextValue)) {
-        clearPatientFields();
         return;
     }
 
@@ -560,7 +697,11 @@ const syncPatientName = (event: AutocompleteChangeEvent<PatientOption>) => {
             return;
         }
 
-        currentAppointment.value.patientId = null;
+        if (event.value !== currentAppointment.value.patientName) {
+            currentAppointment.value.patientId = null;
+            currentAppointment.value.patientCpf = '';
+            currentAppointment.value.title = event.value;
+        }
         currentAppointment.value.patientName = event.value;
         selectedPatient.value = event.value;
         return;
@@ -578,19 +719,15 @@ const syncPatientName = (event: AutocompleteChangeEvent<PatientOption>) => {
 };
 
 const syncSelectedPatient = () => {
-    const selected = registeredPatients.value.find(patient => normalizeDigits(patient.cpf) === normalizeDigits(currentAppointment.value.patientCpf))
-        ?? registeredPatients.value.find(patient => patient.id === currentAppointment.value.patientId);
-
-    if (selected && !currentAppointment.value.patientCpf) {
-        currentAppointment.value.patientCpf = selected.cpf;
-    }
-
-    selectedPatient.value = selected ?? currentAppointment.value.patientName;
+    const item = currentAppointment.value;
+    selectedPatient.value = item.patientId == null ? item.patientName : { id: item.patientId, name: item.patientName, cpf: item.patientCpf };
 };
 
 const getStatusMenuLabel = (status: AppointmentStatus) => {
     switch (status) {
         case 'Confirmado': return 'Confirmar atendimento';
+        case 'Realizado': return 'Marcar como realizado';
+        case 'Cancelado': return 'Cancelar atendimento';
         case 'Pendente':
         default:
             return 'Marcar como pendente';
@@ -600,47 +737,38 @@ const getStatusMenuLabel = (status: AppointmentStatus) => {
 const getStatusMenuIcon = (status: AppointmentStatus) => {
     switch (status) {
         case 'Confirmado': return 'pi pi-check';
+        case 'Realizado': return 'pi pi-check-circle';
+        case 'Cancelado': return 'pi pi-times';
         case 'Pendente':
         default:
             return 'pi pi-clock';
     }
 };
 
-const updateSelectedAppointmentStatus = (status: AppointmentStatus) => {
-    if (!contextMenuSelection.value) return;
-
-    const index = appointments.value.findIndex(appointment => appointment.id === contextMenuSelection.value?.id);
-    if (index === -1 || !appointments.value[index] || appointments.value[index].status === 'Realizado' || status === 'Realizado') return;
-
-    appointments.value[index].status = status;
-
-    if (currentAppointment.value.id === appointments.value[index].id) {
-        currentAppointment.value.status = status;
-    }
-
-    toast.add({ severity: 'success', summary: 'Status atualizado', detail: 'Atendimento atualizado com sucesso.', life: 2500 });
-    contextMenuSelection.value = null;
-};
-
-const deleteSelectedAppointment = () => {
-    const target = appointments.value.find(item => item.id === appointmentToDelete.value?.id);
-    if (!target || target.status === 'Realizado') { appointmentToDelete.value = null; return; }
-    appointments.value = appointments.value.filter(item => item.id !== target.id);
-    if (currentAppointment.value.id === target.id) closeAppointmentDialog();
-    appointmentToDelete.value = null;
-    contextMenuSelection.value = null;
-    toast.add({ severity: 'success', summary: 'Atendimento excluído', detail: 'Registro removido da agenda.', life: 2500 });
-};
-
-const markAppointmentCompleted = (id: string) => {
+const updateSelectedAppointmentStatus = async (status: AppointmentStatus) => {
+    const selected = contextMenuSelection.value;
+    if (!selected || mutationPending.value || saving.value) return;
+    mutationPending.value = true;
     try {
-        const account = completeAppointment(id);
-        if (currentAppointment.value.id === id) closeAppointmentDialog();
-        contextMenuSelection.value = null;
-        toast.add({ severity: 'success', summary: 'Atendimento realizado', detail: 'Conta do paciente criada no Faturamento com status ' + account.status.toLowerCase() + '.', life: 4500 });
-    } catch (error) {
-        showError(error instanceof Error ? error.message : 'Não foi possível realizar o atendimento.');
-    }
+        const item = await AppointmentService.status(selected.id, apiStatuses[status]);
+        if (currentAppointment.value.id === selected.id) closeAppointmentDialog();
+        await afterMutation(status === 'Realizado' ? 'Atendimento realizado. A conta do paciente foi gerada no Faturamento.' : 'Status atualizado.', item);
+    } catch (error) { await handleMutationError(error); }
+    finally { mutationPending.value = false; contextMenuSelection.value = null; }
+};
+const deleteSelectedAppointment = async () => {
+    const selected = appointmentToDelete.value ?? contextMenuSelection.value;
+    if (!selected || mutationPending.value || saving.value) return;
+    if (selected.status === 'Realizado') { appointmentToDelete.value = null; return; }
+    mutationPending.value = true;
+    try {
+        await AppointmentService.cancel(selected.id);
+        const item = appointments.value.find(existing => existing.id === selected.id);
+        if (item) item.status = 'Cancelado';
+        if (currentAppointment.value.id === selected.id) closeAppointmentDialog();
+        await afterMutation('Atendimento cancelado.');
+    } catch (error) { await handleMutationError(error); }
+    finally { mutationPending.value = false; appointmentToDelete.value = null; contextMenuSelection.value = null; }
 };
 
 const openAppointmentContextMenu = (mouseEvent: MouseEvent, appointmentId: string) => {
@@ -662,13 +790,13 @@ const openAppointmentContextMenu = (mouseEvent: MouseEvent, appointmentId: strin
 
     menuItems.value = [
         ...statusMenuItems,
-        ...(appointment.status === 'Confirmado' ? [{ label: 'Atendimento realizado', icon: 'pi pi-check-circle', command: () => markAppointmentCompleted(appointment.id) }] : []),
-        {
-            label: 'Excluir atendimento',
+        ...(appointment.status === 'Confirmado' ? [{ label: 'Atendimento realizado', icon: 'pi pi-check-circle', command: () => updateSelectedAppointmentStatus('Realizado') }] : []),
+        ...(appointment.status === 'Cancelado' ? [] : [{
+            label: 'Cancelar atendimento',
             icon: 'pi pi-trash',
             class: 'text-[var(--p-primary-1010)]',
             command: () => { appointmentToDelete.value = cloneAppointment(appointment); }
-        }
+        }])
     ];
 
     cm.value?.show(mouseEvent);
@@ -722,6 +850,8 @@ const findProcedureByDescription = (value: string) => {
 };
 
 const applyProcedureToRow = (row: AppointmentProcedure, procedure: ProcedureOption) => {
+    if (row.procedureId === procedure.id) return;
+    row.id = undefined;
     row.procedureId = procedure.id;
     row.procedureIdText = procedure.displayId;
     row.description = procedure.description;
@@ -730,6 +860,7 @@ const applyProcedureToRow = (row: AppointmentProcedure, procedure: ProcedureOpti
 };
 
 const clearProcedureRow = (row: AppointmentProcedure) => {
+    row.id = undefined;
     row.procedureId = null;
     row.procedureIdText = '';
     row.description = '';
@@ -739,6 +870,8 @@ const clearProcedureRow = (row: AppointmentProcedure) => {
 
 const syncProcedureIdInput = (row: AppointmentProcedure, value: string | null | undefined) => {
     const nextValue = value ?? '';
+    if (nextValue === row.procedureIdText) return;
+    row.id = undefined;
     row.procedureIdText = nextValue;
 
     if (!normalizeDigits(nextValue)) {
@@ -765,6 +898,8 @@ const syncProcedureDescriptionInput = (row: AppointmentProcedure, value: Procedu
     }
 
     const nextValue = value ?? '';
+    if (nextValue === row.description) return;
+    row.id = undefined;
     row.description = nextValue;
 
     if (!nextValue.trim()) {
@@ -786,16 +921,19 @@ const syncProcedureDescriptionInput = (row: AppointmentProcedure, value: Procedu
 
 const resetAppointmentDialogState = () => {
     submitted.value = false;
+    patientSearchQuery = '';
+    void loadPatients();
     patientSuggestions.value = registeredPatients.value;
     procedureDescriptionSuggestions.value = registeredProcedures.value;
 };
 
 const openAddDialog = () => {
+    if (saving.value || mutationPending.value) return;
+    detailsSequence++;
+    detailsLoading.value = false;
     dialogMode.value = 'add';
     currentAppointment.value = {
         ...getEmptyAppointment(),
-        id: `appointment-${Date.now()}`,
-        code: getNextAppointmentCode(),
         start: dateToInputValue(new Date()),
         end: dateToInputValue(addMinutes(new Date(), 60)),
         procedures: []
@@ -806,11 +944,12 @@ const openAddDialog = () => {
 };
 
 const openDialogFromCalendarSelection = (selection: DateSelectInfo) => {
+    if (saving.value || mutationPending.value) return;
+    detailsSequence++;
+    detailsLoading.value = false;
     dialogMode.value = 'add';
     currentAppointment.value = {
         ...getEmptyAppointment(),
-        id: `appointment-${Date.now()}`,
-        code: getNextAppointmentCode(),
         start: dateToInputValue(selection.start),
         end: dateToInputValue(selection.end || addMinutes(selection.start, 60)),
         procedures: []
@@ -820,18 +959,24 @@ const openDialogFromCalendarSelection = (selection: DateSelectInfo) => {
     appointmentDialogVisible.value = true;
 };
 
-const openDialogFromCalendarEvent = (info: EventClickInfo) => {
-    const appointment = appointments.value.find(item => item.id === info.event.id);
-    if (!appointment) return;
-
-    dialogMode.value = 'edit';
-    currentAppointment.value = cloneAppointment(appointment);
-    syncSelectedPatient();
-    resetAppointmentDialogState();
-    appointmentDialogVisible.value = true;
+const openDialogFromCalendarEvent = async (info: EventClickInfo) => {
+    if (saving.value || mutationPending.value) return;
+    const sequence = ++detailsSequence;
+    detailsLoading.value = true;
+    try {
+        const item = await AppointmentService.details(info.event.id);
+        if (sequence !== detailsSequence) return;
+        dialogMode.value = 'edit';
+        currentAppointment.value = fromApi(item);
+        syncSelectedPatient();
+        resetAppointmentDialogState();
+        appointmentDialogVisible.value = true;
+    } catch (error) { if (sequence === detailsSequence) await handleMutationError(error); }
+    finally { if (sequence === detailsSequence) detailsLoading.value = false; }
 };
 
 const closeAppointmentDialog = () => {
+    if (saving.value) return;
     appointmentDialogVisible.value = false;
     submitted.value = false;
     currentAppointment.value = getEmptyAppointment();
@@ -853,63 +998,46 @@ const isAppointmentValid = () => {
     );
 };
 
-const saveAppointment = () => {
+const saveAppointment = async () => {
+    if (saving.value || mutationPending.value) return;
     if (currentAppointment.value.status === 'Realizado' || appointments.value.find(a => a.id === currentAppointment.value.id)?.status === 'Realizado') return;
     submitted.value = true;
     syncPatientName({ value: selectedPatient.value });
-
-    if (!isAppointmentValid()) return;
+    if (!isAppointmentValid()) { showError('Preencha o paciente, os horários e pelo menos um procedimento.'); return; }
     if (appointmentConflict.value) {
         showError(conflictMessage(appointmentConflict.value));
         return;
     }
-
-    const appointmentToSave = cloneAppointment({
-        ...currentAppointment.value,
-        procedures: currentAppointment.value.procedures.filter(hasProcedureReadyToSave)
-    });
-
-    if (dialogMode.value === 'add') {
-        appointments.value.unshift(appointmentToSave);
-        toast.add({ severity: 'success', summary: 'Atendimento criado', detail: 'Atendimento adicionado à agenda.', life: 3000 });
-    } else {
-        const index = appointments.value.findIndex(appointment => appointment.id === appointmentToSave.id);
-        if (index !== -1) {
-            appointments.value.splice(index, 1, appointmentToSave);
-            toast.add({ severity: 'success', summary: 'Atendimento atualizado', detail: 'Alterações salvas com sucesso.', life: 3000 });
-        }
+    const item = cloneAppointment({ ...currentAppointment.value, procedures: currentAppointment.value.procedures.filter(hasProcedureReadyToSave) });
+    if (item.patientName.length > 150 || (item.title?.length ?? 0) > 150 || (item.notes?.length ?? 0) > 4000 || item.procedures.length > 200 || item.procedures.some(procedure => !procedure.description.trim() || procedure.description.length > 255 || procedure.classification.length > 255 || !Number.isFinite(Number(procedure.value)) || Number(procedure.value) < 0 || Number(procedure.value) > 9999999999.99 || Math.abs(Number(procedure.value) * 100 - Math.round(Number(procedure.value) * 100)) > 0.0001)) {
+        showError('Verifique os limites: nome de 150 caracteres, observações de 4000, até 200 procedimentos com descrição/classificação de 255 e valor válido com até duas casas decimais.');
+        return;
     }
-
-    closeAppointmentDialog();
+    saving.value = true;
+    try {
+        const saved = dialogMode.value === 'add' ? await AppointmentService.create(toApi(item)) : await AppointmentService.edit(item.id, toApi(item));
+        appointmentDialogVisible.value = false;
+        await afterMutation('Atendimento salvo.', saved);
+    } catch (error) { await handleMutationError(error); }
+    finally { saving.value = false; }
 };
-
-const updateAppointmentSchedule = (id: string, start: Date | null, end: Date | null) => {
-    if (!start || !end || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) {
-        showError('O fim deve ser posterior ao início.');
-        return false;
-    }
-
-    const appointment = appointments.value.find(item => item.id === id);
-    if (!appointment || appointment.status === 'Realizado') return false;
-    const conflict = findAppointmentConflict(appointments.value, start, end, id);
-    if (conflict) {
-        showError(conflictMessage(conflict));
-        return false;
-    }
-
-    appointment.start = dateToInputValue(start);
-    appointment.end = dateToInputValue(end);
-    toast.add({ severity: 'success', summary: 'Agenda atualizada', detail: 'Horário do atendimento ajustado.', life: 2500 });
-    return true;
+const updateAppointmentSchedule = async (info: EventDropInfo | EventResizeDoneInfo) => {
+    if (mutationPending.value || saving.value || !info.event.start || !info.event.end) { info.revert(); return; }
+    const appointment = appointments.value.find(item => item.id === info.event.id);
+    if (appointment?.status === 'Realizado') { info.revert(); return; }
+    const conflict = findAppointmentConflict(appointments.value, info.event.start, info.event.end, info.event.id);
+    if (conflict) { info.revert(); showError(conflictMessage(conflict)); return; }
+    mutationPending.value = true;
+    try {
+        const saved = await AppointmentService.schedule(info.event.id, withSeconds(dateToInputValue(info.event.start)), withSeconds(dateToInputValue(info.event.end)));
+        await afterMutation('Horário atualizado.', saved);
+    } catch (error) { info.revert(); await handleMutationError(error); }
+    finally { mutationPending.value = false; }
 };
+const updateAppointmentFromCalendarMove = (info: EventDropInfo) => { void updateAppointmentSchedule(info); };
+const updateAppointmentFromCalendarResize = (info: EventResizeDoneInfo) => { void updateAppointmentSchedule(info); };
 
-const updateAppointmentFromCalendarMove = (info: EventDropInfo) => {
-    if (!updateAppointmentSchedule(info.event.id, info.event.start, info.event.end)) info.revert();
-};
-
-const updateAppointmentFromCalendarResize = (info: EventResizeDoneInfo) => {
-    if (!updateAppointmentSchedule(info.event.id, info.event.start, info.event.end)) info.revert();
-};
+onBeforeUnmount(() => { listController?.abort(); detailsSequence++; });
 
 onMounted(() => {
     void loadPatients();

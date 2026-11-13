@@ -7,9 +7,13 @@
                 :has-filters="Object.values(quotationFilters).some(filter => !!filter.value)"
                 @clear="Object.values(quotationFilters).forEach(filter => filter.value = null)"
             >
-                <Button size="small" icon="pi pi-plus" label="Novo orçamento" @click="openAddDialog" />
+                <Button size="small" icon="pi pi-plus" label="Novo orçamento" :disabled="busy || loading" @click="openAddDialog" />
             </AppTableToolbar>
 
+            <div v-if="listError" role="alert" class="p-4 flex items-center gap-3">
+                <span>{{ listError }}</span>
+                <Button label="Tentar novamente" size="small" :disabled="loading || busy" @click="loadQuotations" />
+            </div>
             <div class="app-table-region flex-1 flex flex-col overflow-hidden px-2 pb-2">
                 <DataTable
                     v-model:filters="quotationFilters"
@@ -17,7 +21,8 @@
                     v-model:contextMenuSelection="contextMenuSelection"
                     @update:selection="contextMenuSelection = null"
                     @rowContextmenu="onRowContextMenu"
-                    :value="quotationsMock"
+                    :value="quotations"
+                    :loading="loading"
                     class="app-table flex-1 px-2 sm:px-4"
                     scrollable
                     scrollHeight="flex"
@@ -25,7 +30,7 @@
                     :metaKeySelection="metaKey"
                     dataKey="id"
                     filterDisplay="row"
-                    :globalFilterFields="['status', 'id', 'patientName', 'patientCpf', 'totalValue', 'generationDate']"
+                    :globalFilterFields="['status', 'code', 'patientName', 'patientCpf', 'totalValue', 'generationDate']"
                     :rowClass="rowClass"
                     paginator
                     :rows="10"
@@ -33,7 +38,7 @@
                     paginatorTemplate="RowsPerPageDropdown PrevPageLink CurrentPageReport NextPageLink "
                     currentPageReportTemplate="{first}–{last} de {totalRecords} registros"
                 >
-                    <template #empty><AppEmptyState title="Nenhum orçamento encontrado." /></template>
+                    <template #empty><AppEmptyState :title="loading ? 'Carregando orçamentos…' : listError ? 'Não foi possível carregar os orçamentos.' : 'Nenhum orçamento encontrado.'" /></template>
 
                     <Column field="status" header="Status" :showFilterMenu="false" style="width: 8rem;">
                         <template #body="{ data }">
@@ -51,7 +56,7 @@
                         </template>
                     </Column>
 
-                    <Column field="id" header="ID Orçamento" :showFilterMenu="false" style="width: 12rem;">
+                    <Column field="code" header="ID Orçamento" :showFilterMenu="false" style="width: 12rem;">
                         <template #filter="{ filterModel, filterCallback }">
                             <InputText v-model="filterModel.value" type="text" @input="filterCallback()" placeholder="Buscar ID" aria-label="Buscar ID" class="p-column-filter py-1 px-2 text-sm h-[36px] w-full" />
                         </template>
@@ -84,9 +89,9 @@
                     <Column headerClass="app-actions-cell" header="Ações" :exportable="false" style="min-width: 8rem">
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
-                                <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button aria-label="Baixar orçamento em PDF" title="Baixar orçamento em PDF" icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
-                                <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="slotProps.data.status === 'Inativo'" />
+                                <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="busy" />
+                                <Button aria-label="Baixar orçamento em PDF" title="Baixar orçamento em PDF" icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="busy" />
+                                <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="busy || slotProps.data.status === 'Inativo'" />
                             </div>
                         </template>
                     </Column>
@@ -98,24 +103,24 @@
     <QuotationScheduleDialog v-if="schedulingQuotation" :quotation="schedulingQuotation" @close="schedulingQuotation = null" @confirm="completeApproval" />
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
-    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '1180px' }" header="Novo Orçamento" :modal="true" class="app-dialog p-fluid">
-        <div class="app-dialog-body app-dialog-section">
+    <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '1180px' }" header="Novo Orçamento" :modal="true" :closable="!busy" :closeOnEscape="!busy" class="app-dialog p-fluid">
+        <fieldset :disabled="busy" class="app-dialog-body app-dialog-section border-0 min-w-0">
             <QuotationGeneralFields
                 mode="add"
                 :submitted="submitted"
             />
             <QuotationProceduresSection />
-        </div>
+        </fieldset>
 
         <template #footer>
-            <Button label="Cancelar" icon="pi pi-times" text @click="closeAddDialog" />
-            <Button label="Salvar" icon="pi pi-check" @click="saveAddedQuotation" />
+            <Button label="Cancelar" icon="pi pi-times" :disabled="busy" text @click="closeAddDialog" />
+            <Button label="Salvar" icon="pi pi-check" :loading="busy" :disabled="busy" @click="saveAddedQuotation" />
         </template>
     </Dialog>
 
-    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '1180px' }" header="Detalhes do orçamento" :modal="true" class="app-dialog p-fluid">
-        <div class="app-dialog-body app-dialog-section">
-            <AppDetailSummary :label="'Orçamento ' + currentQuotation.id" :title="currentQuotation.patientName" icon="pi-file" :status="currentQuotation.status" :items="[
+    <Dialog :draggable="false" v-model:visible="editDialogVisible" :style="{ width: '1180px' }" header="Detalhes do orçamento" :modal="true" :closable="!busy" :closeOnEscape="!busy" class="app-dialog p-fluid">
+        <fieldset :disabled="busy" class="app-dialog-body app-dialog-section border-0 min-w-0">
+            <AppDetailSummary :label="'Orçamento ' + currentQuotation.code" :title="currentQuotation.patientName" icon="pi-file" :status="currentQuotation.status" :items="[
                 { label: 'CPF', value: currentQuotation.patientCpf },
                 { label: 'Valor total', value: formatCurrency(currentQuotation.totalValue) }
             ]" />
@@ -124,15 +129,15 @@
                 :submitted="submitted"
             />
             <QuotationProceduresSection />
-        </div>
+        </fieldset>
 
         <template #footer>
-            <Button label="Cancelar" icon="pi pi-times" text @click="closeEditDialog" />
-            <Button label="Salvar" icon="pi pi-check" @click="saveEditedQuotation" />
+            <Button label="Cancelar" icon="pi pi-times" :disabled="busy" text @click="closeEditDialog" />
+            <Button label="Salvar" icon="pi pi-check" :loading="busy" :disabled="busy" @click="saveEditedQuotation" />
         </template>
     </Dialog>
 
-    <Dialog :draggable="false" v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar inativação" :modal="true" class="app-dialog">
+    <Dialog :draggable="false" v-model:visible="deleteDialogVisible" :style="{ width: '450px' }" header="Confirmar inativação" :modal="true" :closable="!busy" :closeOnEscape="!busy" class="app-dialog">
         <div class="app-confirm-body">
             <i class="pi pi-exclamation-triangle app-confirm-icon" />
             <div class="app-dialog-section">
@@ -140,20 +145,20 @@
             </div>
         </div>
         <template #footer>
-            <Button label="Cancelar" icon="pi pi-times" text @click="deleteDialogVisible = false" />
-            <Button label="Inativar" icon="pi pi-check" severity="danger" @click="executeDelete" />
+            <Button label="Cancelar" icon="pi pi-times" :disabled="busy" text @click="deleteDialogVisible = false" />
+            <Button label="Inativar" icon="pi pi-check" :loading="busy" :disabled="busy" severity="danger" @click="executeDelete" />
         </template>
     </Dialog>
-    <AppPermanentDeleteDialog :visible="!!recordToDelete" :recordName="recordToDelete ? recordToDelete.patientName : ''" :busy="permanentlyDeleting" @update:visible="value => { if (!value) recordToDelete = null; }" @confirm="permanentlyDelete" />
 </template>
 
 <script setup lang="ts">
 import QuotationScheduleDialog from '../components/QuotationScheduleDialog.vue';
-import { quotationsMock, type Quotation, type QuotationProcedure } from '../../infrastructure/services/QuotationDemo';
-const schedulingQuotation = ref<Quotation | null>(null);
-import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
 import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppDetailSection from '../components/AppDetailSection.vue';
+import axios from 'axios';
+import { getApiErrorMessage } from '../../infrastructure/http/api';
+import { QuotationService } from '../../infrastructure/services/QuotationService';
+import type { ApiQuotation, QuotationInput, QuotationStatus } from '../../infrastructure/services/QuotationService';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { defineComponent, h, onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -168,13 +173,35 @@ import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import { useToast } from 'primevue/usetoast';
-import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
+import { PatientService } from '../../infrastructure/services/PatientService';
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
-import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrastructure/services/ProcedureService';
+import { ProcedureService } from '../../infrastructure/services/ProcedureService';
 import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
 import AppTableToolbar from '../components/AppTableToolbar.vue';
 import AppStatusBadge from '../components/AppStatusBadge.vue';
 import AppLayout from '../components/AppLayout.vue';
+
+interface QuotationProcedure {
+    rowKey: string;
+    id?: number;
+    procedureId: number | null;
+    procedureIdText: string;
+    description: string;
+    value: number;
+    classification: string;
+}
+
+interface Quotation {
+    id: number | null;
+    code: string;
+    patientId: number | null;
+    status: 'Pendente' | 'Aprovado' | 'Rejeitado' | 'Inativo';
+    generationDate: string;
+    patientName: string;
+    patientCpf: string;
+    totalValue: number;
+    procedures: QuotationProcedure[];
+}
 
 interface PatientOption {
     id: number | null;
@@ -190,7 +217,54 @@ interface ProcedureOption {
     classification: string;
 }
 
-
+const quotations = ref<Quotation[]>([]);
+const schedulingQuotation = ref<Quotation | null>(null);
+const loading = ref(false);
+const busy = ref(false);
+const listError = ref('');
+const totalMode = ref<'automatic' | 'manual'>('automatic');
+const originalStatus = ref<Quotation['status']>('Pendente');
+const statusToApi: Record<Quotation['status'], QuotationStatus> = {
+    Pendente: 'PENDENTE', Aprovado: 'APROVADO', Rejeitado: 'REJEITADO', Inativo: 'INATIVO'
+};
+const statusFromApi: Record<QuotationStatus, Quotation['status']> = {
+    PENDENTE: 'Pendente', APROVADO: 'Aprovado', REJEITADO: 'Rejeitado', INATIVO: 'Inativo'
+};
+const allowedStatuses: Record<Quotation['status'], Quotation['status'][]> = {
+    Pendente: ['Pendente', 'Aprovado', 'Rejeitado', 'Inativo'],
+    Aprovado: ['Aprovado', 'Pendente', 'Inativo'],
+    Rejeitado: ['Rejeitado', 'Pendente', 'Inativo'],
+    Inativo: ['Inativo', 'Pendente']
+};
+const fromApi = (data: ApiQuotation): Quotation => ({
+    ...data, status: statusFromApi[data.status], patientCpf: formatCpf(data.patientCpf),
+    procedures: data.procedures.map((item, index) => ({
+        ...item, rowKey: `saved-${data.id}-${index}`, procedureIdText: item.procedureCode ?? ''
+    }))
+});
+const replaceSavedQuotation = (data: ApiQuotation) => {
+    const saved = fromApi(data);
+    const index = quotations.value.findIndex(item => item.id === saved.id);
+    if (index < 0) quotations.value.unshift(saved);
+    else quotations.value.splice(index, 1, saved);
+    return saved;
+};
+const loadQuotations = async () => {
+    loading.value = true;
+    listError.value = '';
+    try { quotations.value = (await QuotationService.list()).map(fromApi); }
+    catch (error) { listError.value = getApiErrorMessage(error); }
+    finally { loading.value = false; }
+};
+const showOperationError = async (error: unknown) => {
+    toast.add({ severity: 'error', summary: 'Operação não concluída', detail: getApiErrorMessage(error), life: 6000 });
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+        editDialogVisible.value = false;
+        deleteDialogVisible.value = false;
+        await loadQuotations();
+        toast.add({ severity: 'warn', summary: 'Dados alterados', detail: 'A lista foi recarregada. Reabra os detalhes antes de tentar novamente.', life: 6000 });
+    }
+};
 
 const toast = useToast();
 const statusOptions = ref(['Pendente', 'Aprovado', 'Rejeitado', 'Inativo']);
@@ -220,7 +294,7 @@ const currentQuotation = ref<Quotation>(getEmptyQuotation());
 const quotationFilters = ref({
     global: { value: null, matchMode: FilterMatchMode.CONTAINS },
     status: { value: null, matchMode: FilterMatchMode.EQUALS },
-    id: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    code: { value: null, matchMode: FilterMatchMode.CONTAINS },
     generationDate: { value: null, matchMode: FilterMatchMode.CONTAINS },
     patientName: { value: null, matchMode: FilterMatchMode.CONTAINS },
     totalValue: { value: null, matchMode: FilterMatchMode.CONTAINS }
@@ -292,13 +366,20 @@ const QuotationGeneralFields = defineComponent({
                                 inputId: `${prefix}-value`,
                                 modelValue: currentQuotation.value.totalValue,
                                 'onUpdate:modelValue': (value: number | null) => {
+                                    totalMode.value = 'manual';
                                     currentQuotation.value.totalValue = value ?? 0;
                                 },
                                 mode: 'currency',
                                 currency: 'BRL',
                                 locale: 'pt-BR',
-                                class: 'w-full'
-                            })
+                                class: 'w-full',
+                                min: 0, max: 9999999999.99
+                            }),
+                            h(Button, { label: 'Recalcular pelos itens', size: 'small', text: true,
+                                disabled: !currentQuotation.value.procedures.length,
+                                onClick: () => { totalMode.value = 'automatic'; updateQuotationTotalFromProcedures(); }
+                            }),
+                            h('small', null, totalMode.value === 'automatic' ? 'Total calculado pelos itens ao salvar.' : 'Total manual preservado ao salvar.')
                         ]),
                         h('div', { class: 'app-field col-span-12 md:col-span-6' }, [
                             h('label', { for: `${prefix}-status`, class: 'app-field-label' }, 'Status'),
@@ -308,7 +389,7 @@ const QuotationGeneralFields = defineComponent({
                                 'onUpdate:modelValue': (value: Quotation['status']) => {
                                     currentQuotation.value.status = value;
                                 },
-                                options: ['Pendente', 'Aprovado', 'Rejeitado'],
+                                options: props.mode === 'add' ? ['Pendente'] : allowedStatuses[originalStatus.value],
                                 class: 'w-full'
                             })
                         ])
@@ -379,14 +460,21 @@ const QuotationProceduresSection = defineComponent({
                             header: 'Valor',
                             style: 'width: 10rem'
                         }, {
-                            body: ({ data }: { data: QuotationProcedure }) => h('span', { class: 'quotation-procedure-readonly-field' }, data.procedureId ? formatCurrency(data.value) : '')
+                            body: ({ data }: { data: QuotationProcedure }) => h(InputNumber, {
+                                modelValue: data.value, 'onUpdate:modelValue': (value: number | null) => { data.value = value ?? 0; updateQuotationTotalFromProcedures(); },
+                                mode: 'currency', currency: 'BRL', locale: 'pt-BR', min: 0, max: 9999999999.99, fluid: true,
+                                'aria-label': 'Valor do procedimento'
+                            })
                         }),
                         h(Column, {
                             field: 'classification',
                             header: 'Classificação',
                             style: 'width: 12rem'
                         }, {
-                            body: ({ data }: { data: QuotationProcedure }) => h('span', { class: 'quotation-procedure-readonly-field' }, data.classification)
+                            body: ({ data }: { data: QuotationProcedure }) => h(InputText, {
+                                modelValue: data.classification, 'onUpdate:modelValue': (value: string | undefined) => { data.classification = value ?? ''; },
+                                maxlength: 255, fluid: true, 'aria-label': 'Classificação do procedimento'
+                            })
                         }),
                         h(Column, {
                             header: 'Ações',
@@ -416,12 +504,17 @@ const QuotationProceduresSection = defineComponent({
     }
 });
 
+function localDate() {
+    const date = new Date();
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 function getEmptyQuotation(): Quotation {
     return {
-        id: '',
+        id: null,
+        code: '',
         patientId: null,
         status: 'Pendente',
-        generationDate: '',
+        generationDate: localDate(),
         patientName: '',
         patientCpf: '',
         totalValue: 0,
@@ -457,13 +550,14 @@ const loadPatients = async () => {
     try {
         const patients = await PatientService.list();
         registeredPatients.value = patients
+            .filter(patient => patient.statusCode === 0)
             .map(toPatientOption)
             .filter(patient => patient.name || patient.cpf);
     } catch (error: unknown) {
         toast.add({
             severity: 'error',
             summary: 'Erro',
-            detail: getPatientServiceErrorMessage(error),
+            detail: getApiErrorMessage(error),
             life: 5000
         });
     }
@@ -473,7 +567,7 @@ const loadProcedures = async () => {
     try {
         const procedures = await ProcedureService.list();
         registeredProcedures.value = procedures
-            .filter(procedure => procedure.statusCode !== 1)
+            .filter(procedure => procedure.statusCode === 0)
             .map(toProcedureOption)
             .filter(procedure => procedure.id || procedure.description);
         procedureDescriptionSuggestions.value = registeredProcedures.value;
@@ -481,7 +575,7 @@ const loadProcedures = async () => {
         toast.add({
             severity: 'error',
             summary: 'Erro',
-            detail: getProcedureServiceErrorMessage(error),
+            detail: getApiErrorMessage(error),
             life: 5000
         });
     }
@@ -515,12 +609,9 @@ const onPatientCpfInput = (value: string | null | undefined) => {
     const nextValue = value ?? '';
     currentQuotation.value.patientCpf = nextValue;
 
-    if (!normalizeCpf(nextValue)) {
-        clearPatientFields();
-        return;
-    }
-
-    findPatientByCpf(nextValue);
+    currentQuotation.value.patientId = null;
+    selectedPatient.value = currentQuotation.value.patientName;
+    if (normalizeCpf(nextValue)) findPatientByCpf(nextValue);
 };
 
 const searchPatients = (event: { query: string }) => {
@@ -557,8 +648,10 @@ const syncPatientName = (event: { value: PatientOption | string | null }) => {
 };
 
 const syncSelectedPatient = () => {
-    const selected = registeredPatients.value.find(patient => normalizeCpf(patient.cpf) === normalizeCpf(currentQuotation.value.patientCpf));
-    selectedPatient.value = selected ?? currentQuotation.value.patientName;
+    const quotation = currentQuotation.value;
+    selectedPatient.value = quotation.patientId == null ? quotation.patientName : {
+        id: quotation.patientId, name: quotation.patientName, cpf: quotation.patientCpf
+    };
 };
 
 const getEmptyQuotationProcedure = (): QuotationProcedure => ({
@@ -571,10 +664,16 @@ const getEmptyQuotationProcedure = (): QuotationProcedure => ({
 });
 
 const updateQuotationTotalFromProcedures = () => {
-    currentQuotation.value.totalValue = currentQuotation.value.procedures.reduce((acc, procedure) => acc + (procedure.value ?? 0), 0);
+    if (totalMode.value === 'automatic') {
+        currentQuotation.value.totalValue = currentQuotation.value.procedures.reduce((acc, item) => acc + Math.round((item.value ?? 0) * 100), 0) / 100;
+    }
 };
 
 const addProcedureRow = () => {
+    if (currentQuotation.value.procedures.length >= 200) {
+        toast.add({ severity: 'warn', summary: 'Limite de itens', detail: 'O orçamento permite até 200 procedimentos.', life: 4000 });
+        return;
+    }
     currentQuotation.value.procedures.push(getEmptyQuotationProcedure());
 };
 
@@ -584,6 +683,7 @@ const removeProcedureRow = (procedure: QuotationProcedure) => {
 };
 
 const clearProcedureRow = (row: QuotationProcedure) => {
+    delete row.id;
     row.procedureId = null;
     row.procedureIdText = '';
     row.description = '';
@@ -593,6 +693,8 @@ const clearProcedureRow = (row: QuotationProcedure) => {
 };
 
 const applyProcedureToRow = (row: QuotationProcedure, procedure: ProcedureOption) => {
+    if (row.procedureId === procedure.id && row.id != null) return;
+    delete row.id;
     row.procedureId = procedure.id;
     row.procedureIdText = procedure.displayId;
     row.description = procedure.description;
@@ -617,6 +719,8 @@ const findProcedureByDescription = (value: string) => {
 
 const syncProcedureIdInput = (row: QuotationProcedure, value: string | null) => {
     const nextValue = value ?? '';
+    if (nextValue === row.procedureIdText) return;
+    delete row.id;
     row.procedureIdText = nextValue;
 
     if (!normalizeProcedureId(nextValue)) {
@@ -644,6 +748,8 @@ const syncProcedureDescriptionInput = (row: QuotationProcedure, value: Procedure
     }
 
     const nextValue = value ?? '';
+    if (nextValue === row.description) return;
+    delete row.id;
     row.description = nextValue;
 
     if (!nextValue.trim()) {
@@ -659,8 +765,6 @@ const syncProcedureDescriptionInput = (row: QuotationProcedure, value: Procedure
 
     row.procedureId = null;
     row.procedureIdText = '';
-    row.value = 0;
-    row.classification = '';
     updateQuotationTotalFromProcedures();
 };
 
@@ -751,7 +855,7 @@ const createQuotationPdfBlob = (quotation: Quotation) => {
     };
 
     addText('Orçamento', left, 18, 'F2');
-    addText(`Código: ${quotation.id || 'Novo orçamento'}`, left, 11, 'F2');
+    addText(`Código: ${quotation.code || 'Novo orçamento'}`, left, 11, 'F2');
     addRule();
     addText(`Paciente: ${quotation.patientName || '-'}`);
     addText(`CPF: ${quotation.patientCpf || '-'}`);
@@ -816,11 +920,15 @@ const createQuotationPdfBlob = (quotation: Quotation) => {
     return new Blob([toPdfBytes(pdf)], { type: 'application/pdf' });
 };
 
-const downloadQuotationPdf = (quotation: Quotation) => {
+const downloadQuotationPdf = async (target: Quotation) => {
+    if (busy.value || target.id == null) return;
+    busy.value = true;
+    try {
+    const quotation = fromApi(await QuotationService.details(target.id));
     const blob = createQuotationPdfBlob(quotation);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const safeId = (quotation.id || 'orcamento').replace(/[^\w-]/g, '');
+    const safeId = (quotation.code || 'orcamento').replace(/[^\w-]/g, '');
 
     link.href = url;
     link.download = `${safeId || 'orcamento'}-${quotation.patientName || 'paciente'}.pdf`.replace(/[\\/:*?"<>|]/g, '-');
@@ -828,176 +936,162 @@ const downloadQuotationPdf = (quotation: Quotation) => {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    } catch (error) { await showOperationError(error); }
+    finally { busy.value = false; }
 };
 
 
-const completeApproval = () => {
-    if (!schedulingQuotation.value) return;
+const changeQuotationStatus = async (status: Quotation['status']) => {
+    const target = contextMenuSelection.value;
+    if (busy.value || target?.id == null) return;
+    busy.value = true;
+    try {
+        replaceSavedQuotation(await QuotationService.changeStatus(target.id, statusToApi[status]));
+        toast.add({ severity: 'success', summary: 'Status atualizado', detail: 'O orçamento foi atualizado.', life: 3000 });
+    } catch (error) { await showOperationError(error); }
+    finally { busy.value = false; contextMenuSelection.value = null; }
+};
+// Aprovar exige planejar as sessões: o diálogo cria os atendimentos na agenda e só então o orçamento é aprovado.
+const openScheduling = async (target: Quotation | null) => {
+    if (busy.value || target?.id == null) return;
+    busy.value = true;
+    try { schedulingQuotation.value = fromApi(await QuotationService.details(target.id)); }
+    catch (error) { await showOperationError(error); }
+    finally { busy.value = false; contextMenuSelection.value = null; }
+};
+const completeApproval = async (created: number) => {
     const quotation = schedulingQuotation.value;
-    quotation.status = 'Aprovado';
-    const index = quotationsMock.value.findIndex(item => item.id === quotation.id);
-    if (index < 0) quotationsMock.value.unshift(quotation);
-    else quotationsMock.value.splice(index, 1, quotation);
     schedulingQuotation.value = null;
-    toast.add({ severity: 'success', summary: 'Orçamento aprovado', detail: 'Sessões adicionadas à agenda local.', life: 4000 });
-};
-const approveQuotation = () => {
-    if (!contextMenuSelection.value) return;
-    schedulingQuotation.value = JSON.parse(JSON.stringify(contextMenuSelection.value));
-    contextMenuSelection.value = null;
-};
-
-const rejectQuotation = () => {
-    if (!contextMenuSelection.value) return;
-
-    const index = quotationsMock.value.findIndex(q => q.id === contextMenuSelection.value?.id);
-    if (index !== -1 && quotationsMock.value[index]) {
-        quotationsMock.value[index].status = 'Rejeitado';
+    if (quotation?.id == null) return;
+    if (quotation.status === 'Aprovado') {
+        toast.add({ severity: 'success', summary: 'Agenda atualizada', detail: `${created} agendamento(s) adicionado(s) à agenda.`, life: 4000 });
+        return;
     }
-    contextMenuSelection.value = null;
+    busy.value = true;
+    try {
+        replaceSavedQuotation(await QuotationService.changeStatus(quotation.id, 'APROVADO'));
+        toast.add({ severity: 'success', summary: 'Orçamento aprovado', detail: `${created} agendamento(s) adicionado(s) à agenda.`, life: 4000 });
+    } catch (error) {
+        toast.add({ severity: 'warn', summary: 'Agendamentos criados', detail: `${created} agendamento(s) criado(s), mas o orçamento não foi aprovado. Altere o status manualmente.`, life: 7000 });
+        await showOperationError(error);
+    } finally { busy.value = false; }
 };
-
-const reactivateQuotation = () => {
-    if (!contextMenuSelection.value) return;
-
-    const index = quotationsMock.value.findIndex(q => q.id === contextMenuSelection.value?.id);
-    if (index !== -1 && quotationsMock.value[index]) {
-        quotationsMock.value[index].status = 'Pendente';
-    }
-    contextMenuSelection.value = null;
-};
-
 const onRowContextMenu = (event: any) => {
-    event.originalEvent.preventDefault();
-    selectedQuotation.value = event.data;
-    contextMenuSelection.value = event.data;
-    if (!contextMenuSelection.value) return;
-
-    if (contextMenuSelection.value.status === 'Pendente') {
-        menuItems.value = [
-            {
-                label: 'Aprovar orçamento',
-                icon: 'pi pi-check',
-                command: () => approveQuotation()
-            },
-            {
-                label: 'Rejeitar orçamento',
-                icon: 'pi pi-times',
-                class: 'text-[var(--p-primary-1010)]',
-                command: () => rejectQuotation()
-            }
-        ];
-        cm.value.show(event.originalEvent);
-    } else if (contextMenuSelection.value.status === 'Aprovado') {
-        menuItems.value = [{ label: 'Planejar novas sessões', icon: 'pi pi-calendar-plus', command: () => approveQuotation() }];
-        cm.value.show(event.originalEvent);
-    } else if (contextMenuSelection.value.status === 'Inativo') {
-        menuItems.value = [
-            {
-                label: 'Reativar orçamento',
-                icon: 'pi pi-refresh',
-                command: () => reactivateQuotation()
-            },
-            {
-                label: 'Excluir permanentemente',
-                command: () => requestPermanentDelete(),
-                icon: 'pi pi-trash',
-                class: 'text-[var(--p-primary-1010)]'
-            }
-        ];
-        cm.value.show(event.originalEvent);
-    }
+    event.originalEvent?.preventDefault?.();
+    if (busy.value || !contextMenuSelection.value) return;
+    const target = contextMenuSelection.value;
+    const status = target.status;
+    menuItems.value = status === 'Pendente' ? [
+        { label: 'Aprovar orçamento', icon: 'pi pi-check', command: () => openScheduling(target) },
+        { label: 'Rejeitar orçamento', icon: 'pi pi-times', class: 'text-[var(--p-primary-1010)]', command: () => changeQuotationStatus('Rejeitado') }
+    ] : status === 'Aprovado' ? [
+        { label: 'Planejar novas sessões', icon: 'pi pi-calendar-plus', command: () => openScheduling(target) },
+        { label: 'Reabrir orçamento', icon: 'pi pi-refresh', command: () => changeQuotationStatus('Pendente') }
+    ] : [{ label: status === 'Inativo' ? 'Reativar orçamento' : 'Reabrir orçamento', icon: 'pi pi-refresh', command: () => changeQuotationStatus('Pendente') }];
+    cm.value.show(event.originalEvent);
 };
-
 const openAddDialog = () => {
+    if (busy.value) return;
+    void loadPatients();
+    void loadProcedures();
     currentQuotation.value = getEmptyQuotation();
+    totalMode.value = 'automatic';
+    originalStatus.value = 'Pendente';
     selectedPatient.value = null;
     patientSuggestions.value = registeredPatients.value;
     procedureDescriptionSuggestions.value = registeredProcedures.value;
     submitted.value = false;
     addDialogVisible.value = true;
 };
-
-const closeAddDialog = () => {
-    addDialogVisible.value = false;
-    submitted.value = false;
+const closeAddDialog = () => { if (!busy.value) { addDialogVisible.value = false; submitted.value = false; } };
+const closeEditDialog = () => { if (!busy.value) { editDialogVisible.value = false; submitted.value = false; } };
+const openEditDialog = async (target: Quotation) => {
+    if (busy.value || target.id == null) return;
+    busy.value = true;
+    try {
+        await Promise.all([loadPatients(), loadProcedures()]);
+        currentQuotation.value = fromApi(await QuotationService.details(target.id));
+        originalStatus.value = currentQuotation.value.status;
+        totalMode.value = 'manual';
+        syncSelectedPatient();
+        procedureDescriptionSuggestions.value = registeredProcedures.value;
+        submitted.value = false;
+        editDialogVisible.value = true;
+    } catch (error) { await showOperationError(error); }
+    finally { busy.value = false; }
 };
-
-const saveAddedQuotation = () => {
-    submitted.value = true;
-    syncPatientName({ value: selectedPatient.value });
-
-    if (currentQuotation.value.patientName?.trim()) {
-        if (currentQuotation.value.procedures.length > 0) {
-            updateQuotationTotalFromProcedures();
+const validMoney = (value: number) => Number.isFinite(value) && value >= 0 && value <= 9999999999.99 && Math.abs(value * 100 - Math.round(value * 100)) < 0.001;
+const validCpf = (cpf: string) => {
+    if (!cpf) return true;
+    if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+    for (const length of [9, 10]) {
+        const sum = [...cpf.slice(0, length)].reduce((acc, digit, index) => acc + Number(digit) * (length + 1 - index), 0);
+        const check = (sum * 10 % 11) % 10;
+        if (check !== Number(cpf[length])) return false;
+    }
+    return true;
+};
+const quotationPayload = (): QuotationInput => {
+    const q = currentQuotation.value;
+    if (!q.patientName.trim() || q.patientName.trim().length > 255) throw new Error('Informe um nome de paciente com até 255 caracteres.');
+    const cpf = normalizeCpf(q.patientCpf);
+    if (!validCpf(cpf)) throw new Error('Informe um CPF válido ou deixe o campo vazio.');
+    if (!validMoney(q.totalValue)) throw new Error('Informe um total válido, com até duas casas decimais.');
+    if (!q.procedures.length && q.totalValue <= 0) throw new Error('Informe itens ou um total maior que zero.');
+    if (q.procedures.length > 200) throw new Error('O orçamento permite até 200 itens.');
+    for (const item of q.procedures) {
+        if (!item.description.trim() || item.description.length > 255 || !item.classification.trim() || item.classification.length > 255 || !validMoney(item.value)) {
+            throw new Error('Preencha descrição, classificação e valor válido de todos os procedimentos (textos com até 255 caracteres).');
         }
-
-        currentQuotation.value.id = '#' + Math.floor(Math.random() * 1000000).toString().padStart(7, '0');
-
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        currentQuotation.value.generationDate = `${yyyy}-${mm}-${dd}`;
-
-        if (currentQuotation.value.status === 'Aprovado') {
-            schedulingQuotation.value = JSON.parse(JSON.stringify(currentQuotation.value));
-        } else quotationsMock.value.unshift(JSON.parse(JSON.stringify(currentQuotation.value)));
+    }
+    return {
+        patientId: q.patientId, patientName: q.patientName.trim(), patientCpf: cpf || null,
+        status: statusToApi[q.status], generationDate: q.generationDate,
+        totalValue: totalMode.value === 'automatic' && q.procedures.length ? 0 : q.totalValue,
+        procedures: q.procedures.map(item => ({
+            ...(item.id == null ? {} : { id: item.id }), procedureId: item.procedureId,
+            description: item.description, value: item.value, classification: item.classification
+        }))
+    };
+};
+const saveQuotation = async (editing: boolean) => {
+    if (busy.value) return;
+    submitted.value = true;
+    busy.value = true;
+    try {
+        syncPatientName({ value: selectedPatient.value });
+        updateQuotationTotalFromProcedures();
+        const payload = quotationPayload();
+        const id = currentQuotation.value.id;
+        if (editing && id == null) throw new Error('Orçamento sem identificador. Reabra os detalhes.');
+        const saved = replaceSavedQuotation(editing ? await QuotationService.edit({ ...payload, id: id! }) : await QuotationService.create(payload));
+        // Aprovado pelo formulário: oferece o planejamento das sessões na agenda.
+        if (saved.status === 'Aprovado' && originalStatus.value !== 'Aprovado') schedulingQuotation.value = saved;
         addDialogVisible.value = false;
-        currentQuotation.value = getEmptyQuotation();
-        selectedPatient.value = null;
-    }
-};
-
-const openEditDialog = (quotation: Quotation) => {
-    currentQuotation.value = JSON.parse(JSON.stringify(quotation));
-    syncSelectedPatient();
-    procedureDescriptionSuggestions.value = registeredProcedures.value;
-    submitted.value = false;
-    editDialogVisible.value = true;
-};
-
-const closeEditDialog = () => {
-    editDialogVisible.value = false;
-    submitted.value = false;
-};
-
-const saveEditedQuotation = () => {
-    submitted.value = true;
-    syncPatientName({ value: selectedPatient.value });
-
-    if (currentQuotation.value.patientName?.trim()) {
-        if (currentQuotation.value.procedures.length > 0) {
-            updateQuotationTotalFromProcedures();
-        }
-
-        const index = quotationsMock.value.findIndex(q => q.id === currentQuotation.value.id);
-        if (currentQuotation.value.status === 'Aprovado' && quotationsMock.value[index]?.status !== 'Aprovado') {
-            schedulingQuotation.value = JSON.parse(JSON.stringify(currentQuotation.value));
-        } else if (index !== -1) {
-            quotationsMock.value.splice(index, 1, JSON.parse(JSON.stringify(currentQuotation.value)));
-        }
         editDialogVisible.value = false;
-        currentQuotation.value = getEmptyQuotation();
-        selectedPatient.value = null;
-    }
+        toast.add({ severity: 'success', summary: 'Orçamento salvo', detail: 'Os dados foram salvos no servidor.', life: 3000 });
+    } catch (error) { await showOperationError(error); }
+    finally { busy.value = false; }
 };
-
+const saveAddedQuotation = () => saveQuotation(false);
+const saveEditedQuotation = () => saveQuotation(true);
 const confirmDeleteQuotation = (quotation: Quotation) => {
+    if (busy.value) return;
     currentQuotation.value = { ...quotation };
     deleteDialogVisible.value = true;
 };
-
-const executeDelete = () => {
-    const index = quotationsMock.value.findIndex(q => q.id === currentQuotation.value.id);
-    const targetQuotation = quotationsMock.value[index];
-
-    if (index !== -1 && targetQuotation) {
-        targetQuotation.status = 'Inativo';
-    }
-
-    deleteDialogVisible.value = false;
-    currentQuotation.value = getEmptyQuotation();
+const executeDelete = async () => {
+    const id = currentQuotation.value.id;
+    if (busy.value || id == null) return;
+    busy.value = true;
+    try {
+        await QuotationService.inactivate(id);
+        const target = quotations.value.find(item => item.id === id);
+        if (target) target.status = 'Inativo';
+        deleteDialogVisible.value = false;
+        toast.add({ severity: 'success', summary: 'Orçamento inativado', detail: 'O registro continua disponível para consulta e reativação.', life: 3000 });
+    } catch (error) { await showOperationError(error); }
+    finally { busy.value = false; }
 };
 
 const rowClass = (data: Quotation) => {
@@ -1005,32 +1099,9 @@ const rowClass = (data: Quotation) => {
 };
 
 onMounted(() => {
+    void loadQuotations();
     void loadPatients();
     void loadProcedures();
 });
-
-const recordToDelete = ref<Quotation | null>(null);
-const permanentlyDeleting = ref(false);
-const requestPermanentDelete = () => {
-    if (contextMenuSelection.value?.status === 'Inativo') recordToDelete.value = { ...contextMenuSelection.value };
-};
-const permanentlyDelete = async () => {
-    const target = recordToDelete.value;
-    if (!target?.id || target.status !== 'Inativo' || permanentlyDeleting.value) return;
-    permanentlyDeleting.value = true;
-    try {
-        // This module currently stores demonstration records only.
-        quotationsMock.value = quotationsMock.value.filter(item => item.id !== target.id);
-        if (selectedQuotation.value?.id === target.id) selectedQuotation.value = null;
-        if (contextMenuSelection.value?.id === target.id) contextMenuSelection.value = null;
-
-        recordToDelete.value = null;
-        toast.add({ severity: 'success', summary: 'Registro excluído', detail: 'Registro excluído permanentemente.', life: 3000 });
-    } catch (error: unknown) {
-        toast.add({ severity: 'error', summary: 'Não foi possível excluir', detail: error instanceof Error ? error.message : 'Tente novamente.', life: 5000 });
-    } finally {
-        permanentlyDeleting.value = false;
-    }
-};
 
 </script>

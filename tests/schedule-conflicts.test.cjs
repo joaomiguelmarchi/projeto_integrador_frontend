@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 const { ref, computed } = require('vue');
-const helper = fs.readFileSync('src/infrastructure/services/ScheduleValidation.ts', 'utf8').replace(/^import .*;$/gm, '').replace('export function', 'function');
+const helper = fs.readFileSync('src/infrastructure/services/ScheduleValidation.ts', 'utf8').replace(/^import .*;$/gm, '').replace(/^export /gm, '');
 const context = { Date };
 vm.createContext(context);
 vm.runInContext(ts.transpile(helper + '\nglobalThis.find = findAppointmentConflict;', { target: ts.ScriptTarget.ES2022 }), context);
@@ -34,7 +34,7 @@ function setupView() {
     const c = { appointments, currentAppointment, submitted:ref(false), selectedPatient:ref(null), dialogMode:ref('add'),
         syncPatientName(){}, isAppointmentValid:()=>true, showError(){}, conflictMessage:()=> 'Conflito',
         findAppointmentConflict:context.find, cloneAppointment: x=>JSON.parse(JSON.stringify(x)), hasProcedureReadyToSave:()=>true,
-        closeAppointmentDialog(){closed=true;}, toast:{add(){}}, dateToInputValue: d=>`${d.getFullYear()}-01-01T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` };
+        closeAppointmentDialog(){closed=true;}, toast:{add(){}}, saving:ref(false), mutationPending:ref(false), onBeforeUnmount(){}, detailsSequence:0, listController:undefined, dateToInputValue: d=>`${d.getFullYear()}-01-01T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` };
     c.appointmentConflict = computed(()=>context.find(appointments.value, currentAppointment.value.start, currentAppointment.value.end, c.dialogMode.value==='edit'?currentAppointment.value.id:undefined));
     vm.createContext(c);
     const handlers = source.slice(source.indexOf('const saveAppointment ='), source.indexOf('onMounted(() =>'));

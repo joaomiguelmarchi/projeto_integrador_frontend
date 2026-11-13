@@ -69,8 +69,12 @@ const accessModule = (route: string) => {
   router.push(route)
 }
 
-const logout = () => {
-  AuthService.logout()
-  router.push('/login')
+const logout = async () => {
+  try {
+    await AuthService.logout()
+  } catch {
+    window.alert('Não foi possível encerrar a sessão no servidor. Tente novamente quando a conexão voltar.')
+  }
+  await router.push('/login')
 }
 </script>

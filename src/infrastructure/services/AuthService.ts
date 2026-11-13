@@ -56,6 +56,13 @@ export const AuthService = {
   },
   logout(reason: EndReason = 'logout') { SessionStore.end(reason); },
   isAuthenticated() { return SessionStore.valid(); },
+  async currentUser() {
+    const response = await api.get('/user/me');
+    if (response.data?.error || !response.data?.data?.id) {
+      throw new Error('Não foi possível validar sua sessão.');
+    }
+    return response.data.data as { id: number; name: string; email: string };
+  },
   async validateSession() {
     if (!SessionStore.valid()) return false;
     const response = await api.get('/user/me');
