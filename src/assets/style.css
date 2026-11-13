@@ -677,6 +677,11 @@ body {
     color: color-mix(in srgb, var(--p-primary-25) 72%, var(--p-surface-900));
 }
 
+.patient-record-status-info {
+    background-color: color-mix(in srgb, var(--p-primary-500) 14%, transparent);
+    color: var(--p-primary-600);
+}
+
 .patient-record-status-danger {
     background-color: color-mix(in srgb, var(--p-primary-1010) 14%, transparent);
     color: var(--p-primary-1010);

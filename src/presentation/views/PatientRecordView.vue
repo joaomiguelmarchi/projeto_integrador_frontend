@@ -103,12 +103,23 @@
                                     <div class="patient-record-section-header">
                                         <div>
                                             <h3>Histórico de atendimentos</h3>
-                                            <p>{{ selectedPatientAttendances.length }} registro(s)</p>
+                                            <p>{{ historyLoading ? 'Carregando...' : `${selectedPatientAttendances.length} registro(s)` }}</p>
                                         </div>
                                         <i class="pi pi-history" />
                                     </div>
 
-                                    <div v-if="selectedPatientAttendances.length" class="patient-record-history-list">
+                                    <div v-if="historyLoading" class="patient-record-empty-panel">
+                                        <i class="pi pi-spin pi-spinner" />
+                                        <span>Carregando atendimentos...</span>
+                                    </div>
+
+                                    <div v-else-if="historyError" class="patient-record-empty-panel">
+                                        <i class="pi pi-exclamation-circle" />
+                                        <span>{{ historyError }}</span>
+                                        <Button label="Tentar novamente" icon="pi pi-refresh" size="small" text @click="reloadHistory" />
+                                    </div>
+
+                                    <div v-else-if="selectedPatientAttendances.length" class="patient-record-history-list">
                                         <article
                                             v-for="attendance in selectedPatientAttendances"
                                             :key="attendance.id"
@@ -120,12 +131,12 @@
                                             </div>
                                             <div class="patient-record-history-content">
                                                 <div class="patient-record-history-title">
-                                                    <h4>{{ attendance.procedures.join(', ') }}</h4>
+                                                    <h4>{{ attendance.procedures.join(', ') || 'Sem procedimentos informados' }}</h4>
                                                     <span :class="['patient-record-status', getAttendanceStatusClass(attendance.status)]">
                                                         {{ attendance.status }}
                                                     </span>
                                                 </div>
-                                                <p>{{ attendance.notes }}</p>
+                                                <p v-if="attendance.notes">{{ attendance.notes }}</p>
                                                 <small>{{ attendance.professional }}</small>
                                             </div>
                                         </article>
@@ -145,7 +156,7 @@
                                     <div class="patient-record-section-header">
                                         <div>
                                             <h3>Anamnese</h3>
-                                            <p>{{ currentAnamnesisTypeLabel }}</p>
+                                            <p>{{ anamnesisStatusLabel }}</p>
                                         </div>
                                         <div class="patient-record-anamnesis-actions">
                                             <Select
@@ -153,18 +164,32 @@
                                                 :options="anamnesisTypeOptions"
                                                 optionLabel="label"
                                                 optionValue="value"
+                                                :disabled="!anamnesisReady || savingAnamnesis"
                                                 class="patient-record-anamnesis-type"
                                             />
                                             <Button
                                                 icon="pi pi-check"
                                                 label="Salvar"
                                                 size="small"
+                                                :loading="savingAnamnesis"
+                                                :disabled="!anamnesisReady"
                                                 @click="saveAnamnesis"
                                             />
                                         </div>
                                     </div>
 
-                                    <template v-if="currentClinicalRecord.selectedAnamnesisType === 'adult'">
+                                    <div v-if="anamnesisLoading" class="patient-record-empty-panel">
+                                        <i class="pi pi-spin pi-spinner" />
+                                        <span>Carregando anamnese...</span>
+                                    </div>
+
+                                    <div v-else-if="anamnesisError" class="patient-record-empty-panel">
+                                        <i class="pi pi-exclamation-circle" />
+                                        <span>{{ anamnesisError }}</span>
+                                        <Button label="Tentar novamente" icon="pi pi-refresh" size="small" text @click="reloadAnamnesis" />
+                                    </div>
+
+                                    <template v-else-if="currentClinicalRecord.selectedAnamnesisType === 'adult'">
                                         <div class="patient-record-anamnesis-section">
                                             <div class="patient-record-anamnesis-section-title">
                                                 <h4>Dados pessoais</h4>
@@ -489,11 +514,13 @@
                                     <div class="patient-record-section-header">
                                         <div>
                                             <h3>Exames</h3>
-                                            <p>{{ currentClinicalRecord.exams.length }} anexo(s)</p>
+                                            <p>{{ examsLoading ? 'Carregando...' : `${exams.length} anexo(s)` }}</p>
                                         </div>
                                         <Button
                                             icon="pi pi-paperclip"
                                             label="Anexar"
+                                            :loading="uploadingExams"
+                                            :disabled="examsLoading || !selectedPatient.id"
                                             @click="openExamFilePicker"
                                         />
                                     </div>
@@ -502,7 +529,7 @@
                                         ref="examInput"
                                         type="file"
                                         class="hidden"
-                                        accept="image/*,application/pdf,.pdf"
+                                        accept="image/*,application/pdf"
                                         multiple
                                         @change="onExamFilesSelected"
                                     />
@@ -514,6 +541,8 @@
                                                 id="exam-type"
                                                 v-model="examDraft.type"
                                                 :options="examTypeOptions"
+                                                optionLabel="label"
+                                                optionValue="value"
                                                 class="w-full"
                                             />
                                         </div>
@@ -523,6 +552,7 @@
                                                 id="exam-date"
                                                 v-model="examDraft.date"
                                                 type="date"
+                                                :max="getTodayInputDate()"
                                                 class="w-full"
                                             />
                                         </div>
@@ -531,33 +561,46 @@
                                             <InputText
                                                 id="exam-notes"
                                                 v-model="examDraft.notes"
+                                                maxlength="500"
                                                 class="w-full"
                                             />
                                         </div>
                                     </div>
                                 </section>
 
-                                <div v-if="currentClinicalRecord.exams.length" class="patient-record-exam-grid">
+                                <div v-if="examsLoading" class="patient-record-empty-panel patient-record-exams-empty">
+                                    <i class="pi pi-spin pi-spinner" />
+                                    <span>Carregando exames...</span>
+                                </div>
+
+                                <div v-else-if="examsError" class="patient-record-empty-panel patient-record-exams-empty">
+                                    <i class="pi pi-exclamation-circle" />
+                                    <span>{{ examsError }}</span>
+                                    <Button label="Tentar novamente" icon="pi pi-refresh" size="small" text @click="reloadExams" />
+                                </div>
+
+                                <div v-else-if="exams.length" class="patient-record-exam-grid">
                                     <article
-                                        v-for="exam in currentClinicalRecord.exams"
+                                        v-for="exam in exams"
                                         :key="exam.id"
                                         class="patient-record-exam-card"
                                     >
                                         <button
                                             type="button"
                                             class="patient-record-exam-preview"
+                                            :aria-label="`Visualizar ${exam.fileName}`"
                                             @click="openExamAttachment(exam)"
                                         >
                                             <img
-                                                v-if="isImageAttachment(exam)"
-                                                :src="exam.url"
+                                                v-if="thumbnails[exam.id]"
+                                                :src="thumbnails[exam.id]"
                                                 :alt="exam.fileName"
                                             />
                                             <i v-else :class="['pi', getExamFileIcon(exam)]" />
                                         </button>
 
                                         <div class="patient-record-exam-info">
-                                            <span>{{ exam.type }}</span>
+                                            <span>{{ getExamTypeLabel(exam.type) }}</span>
                                             <h4>{{ exam.fileName }}</h4>
                                             <p>{{ formatDate(exam.date) }} · {{ formatFileSize(exam.size) }}</p>
                                             <small v-if="exam.notes">{{ exam.notes }}</small>
@@ -569,6 +612,9 @@
                                                 rounded
                                                 outlined
                                                 size="small"
+                                                aria-label="Visualizar exame"
+                                                title="Visualizar exame"
+                                                :loading="openingExamId === exam.id"
                                                 @click="openExamAttachment(exam)"
                                             />
                                             <Button
@@ -577,7 +623,9 @@
                                                 outlined
                                                 severity="danger"
                                                 size="small"
-                                                @click="removeExamAttachment(exam)"
+                                                aria-label="Remover exame"
+                                                title="Remover exame"
+                                                @click="examToRemove = exam"
                                             />
                                         </div>
                                     </article>
@@ -610,6 +658,19 @@
             </div>
         </div>
     </AppLayout>
+
+    <Dialog :visible="!!examToRemove" @update:visible="value => { if (!value && !removingExam) examToRemove = null; }" header="Remover exame" modal :draggable="false" :closable="!removingExam" class="app-dialog" :style="{ width: '450px' }">
+        <div class="app-confirm-body">
+            <i class="pi pi-exclamation-triangle app-confirm-icon" aria-hidden="true" />
+            <div class="app-dialog-section">
+                <span v-if="examToRemove">Deseja remover o exame <b>{{ examToRemove.fileName }}</b> do prontuário?</span>
+            </div>
+        </div>
+        <template #footer>
+            <Button label="Cancelar" icon="pi pi-times" text :disabled="removingExam" @click="examToRemove = null" />
+            <Button label="Remover" icon="pi pi-trash" severity="danger" :loading="removingExam" @click="confirmRemoveExam" />
+        </template>
+    </Dialog>
 
     <Dialog v-model:visible="healthAlertVisible" modal :draggable="false" header="Alertas de saúde do paciente" class="app-dialog" :style="{ width: '640px', maxWidth: '95vw' }">
         <div class="app-dialog-body app-dialog-section" v-if="selectedPatient">
@@ -713,6 +774,7 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios';
 import { getClinicalHealthAlerts } from '../../infrastructure/services/ClinicalHealthAlerts';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -733,11 +795,18 @@ import Tabs from 'primevue/tabs';
 import Textarea from 'primevue/textarea';
 import { useToast } from 'primevue/usetoast';
 import AppLayout from '../components/AppLayout.vue';
+import { getApiErrorMessage } from '../../infrastructure/http/api';
 import { getPatientServiceErrorMessage, PatientService } from '../../infrastructure/services/PatientService';
 import type { ApiPatient } from '../../infrastructure/services/PatientService';
+import { AnamnesisService } from '../../infrastructure/services/AnamnesisService';
+import type { AnamnesisInput, ApiAnamnesis, ApiHealthAnswer, ApiResponses } from '../../infrastructure/services/AnamnesisService';
+import { EXAM_TYPE_LABELS, ExamService, validateExamFiles } from '../../infrastructure/services/ExamService';
+import type { ApiExam, ApiExamType } from '../../infrastructure/services/ExamService';
+import { AppointmentService } from '../../infrastructure/services/AppointmentService';
+import type { ApiAppointment, ApiAppointmentStatus } from '../../infrastructure/services/AppointmentService';
 
 type RecordTab = 'personal' | 'anamnesis' | 'exams';
-type AttendanceStatus = 'Realizado' | 'Pendente' | 'Cancelado';
+type AttendanceStatus = 'Realizado' | 'Confirmado' | 'Pendente' | 'Cancelado';
 type AnamnesisType = 'adult' | 'pediatric';
 type HealthAnswer = '' | 'Sim' | 'Não' | 'Não sei' | 'Pouco' | 'Peito' | 'Mamadeira';
 
@@ -754,6 +823,7 @@ interface PatientOption {
     responsibleName: string;
     address: string;
     addressNumber: string;
+    city: string;
     homePhone: string;
     mobilePhone: string;
     profession: string;
@@ -762,9 +832,7 @@ interface PatientOption {
 }
 
 interface AttendanceHistoryItem {
-    id: string;
-    patientId: number | null;
-    patientCpf: string;
+    id: number;
     date: string;
     status: AttendanceStatus;
     professional: string;
@@ -816,26 +884,20 @@ interface PediatricAnamnesis {
     responses: Record<string, AnamnesisQuestionResponse>;
 }
 
-interface ExamAttachment {
-    id: string;
-    type: string;
-    date: string;
-    notes: string;
-    fileName: string;
-    fileType: string;
-    size: number;
-    url: string;
-}
-
 interface PatientClinicalRecord {
     selectedAnamnesisType: AnamnesisType;
     adultAnamnesis: AdultAnamnesis;
     pediatricAnamnesis: PediatricAnamnesis;
-    exams: ExamAttachment[];
+}
+
+interface AnamnesisMeta {
+    id: number | null;
+    updatedAt: string | null;
+    updatedByName: string | null;
 }
 
 interface ExamDraft {
-    type: string;
+    type: ApiExamType;
     date: string;
     notes: string;
 }
@@ -850,11 +912,30 @@ const visiblePatientCount = ref(patientLazyBatchSize);
 const patientDialogSelection = ref<PatientOption | null>(null);
 const selectedPatient = ref<PatientOption | null>(null);
 const activeTab = ref<RecordTab>('personal');
-const patientRecords = ref<Record<string, PatientClinicalRecord>>({});
+
+// Estado do prontuário do paciente selecionado (carregado da API a cada seleção).
+const currentClinicalRecord = ref<PatientClinicalRecord | null>(null);
+const anamnesisMeta = ref<AnamnesisMeta | null>(null);
+const anamnesisLoading = ref(false);
+const anamnesisError = ref('');
+const savingAnamnesis = ref(false);
+const exams = ref<ApiExam[]>([]);
+const examsLoading = ref(false);
+const examsError = ref('');
+const uploadingExams = ref(false);
+const thumbnails = ref<Record<number, string>>({});
+const openingExamId = ref<number | null>(null);
+const examToRemove = ref<ApiExam | null>(null);
+const removingExam = ref(false);
+const attendances = ref<AttendanceHistoryItem[]>([]);
+const historyLoading = ref(false);
+const historyError = ref('');
+let loadController: AbortController | null = null;
+
 const examInput = ref<HTMLInputElement | null>(null);
-const examTypeOptions = ref(['Radiografia panorâmica', 'Radiografia periapical', 'Tomografia', 'Fotografia intraoral', 'Exame laboratorial', 'Outro']);
+const examTypeOptions = (Object.entries(EXAM_TYPE_LABELS) as [ApiExamType, string][]).map(([value, label]) => ({ label, value }));
 const examDraft = ref<ExamDraft>({
-    type: 'Radiografia panorâmica',
+    type: 'RADIOGRAFIA_PANORAMICA',
     date: getTodayInputDate(),
     notes: ''
 });
@@ -928,46 +1009,22 @@ const pediatricHealthQuestions: AnamnesisQuestion[] = [
     { key: 'fruitsAndVegetables', number: '11', text: 'Alimenta-se de frutas e verduras?', answerOptions: ['Sim', 'Não', 'Pouco'] }
 ];
 
-const attendanceHistory = ref<AttendanceHistoryItem[]>([
-    {
-        id: 'attendance-1',
-        patientId: null,
-        patientCpf: '555.666.777-88',
-        date: '2026-08-18T09:00',
-        status: 'Realizado',
-        professional: 'Dra. Ana Paula',
-        procedures: ['Limpeza Simples'],
-        notes: 'Profilaxia concluída sem intercorrências.'
-    },
-    {
-        id: 'attendance-2',
-        patientId: null,
-        patientCpf: '111.222.333-44',
-        date: '2026-08-18T14:30',
-        status: 'Pendente',
-        professional: 'Dr. Marcos Lima',
-        procedures: ['Clareamento Dental'],
-        notes: 'Atendimento agendado para continuidade do plano.'
-    },
-    {
-        id: 'attendance-3',
-        patientId: null,
-        patientCpf: '555.666.777-88',
-        date: '2026-08-25T10:00',
-        status: 'Realizado',
-        professional: 'Dra. Ana Paula',
-        procedures: ['Avaliação clínica'],
-        notes: 'Paciente orientada sobre retorno preventivo.'
-    }
-]);
+const adultAllQuestions = [...adultHealthQuestions, ...adultWomenQuestions];
 
-const selectedPatientKey = computed(() => selectedPatient.value?.recordKey ?? '');
-const currentClinicalRecord = computed(() => selectedPatientKey.value ? patientRecords.value[selectedPatientKey.value] ?? null : null);
-const patientHealthAlerts = computed(() => getClinicalHealthAlerts(currentClinicalRecord.value));
+const anamnesisReady = computed(() => !!currentClinicalRecord.value && !anamnesisLoading.value && !anamnesisError.value);
+const patientHealthAlerts = computed(() => anamnesisReady.value ? getClinicalHealthAlerts(currentClinicalRecord.value) : []);
 watch(patientHealthAlerts, alerts => { if (!alerts.length) healthAlertVisible.value = false; });
 const currentAnamnesisTypeLabel = computed(() => {
     const selectedType = currentClinicalRecord.value?.selectedAnamnesisType ?? 'adult';
     return selectedType === 'adult' ? 'Modelo adulto' : 'Modelo pediátrico';
+});
+const anamnesisStatusLabel = computed(() => {
+    if (anamnesisLoading.value) return 'Carregando...';
+    const meta = anamnesisMeta.value;
+    if (!meta?.id) return `${currentAnamnesisTypeLabel.value} · Anamnese ainda não preenchida`;
+    const updatedAt = meta.updatedAt ? ` em ${formatDateTime(meta.updatedAt)}` : '';
+    const updatedBy = meta.updatedByName ? ` por ${meta.updatedByName}` : '';
+    return `${currentAnamnesisTypeLabel.value} · Última atualização${updatedAt}${updatedBy}`;
 });
 
 const getFilterValue = (field: keyof typeof patientFilters.value) => String(patientFilters.value[field].value ?? '').trim().toLowerCase();
@@ -998,20 +1055,7 @@ const filteredPatientOptions = computed(() => {
 const visiblePatientOptions = computed(() => filteredPatientOptions.value.slice(0, visiblePatientCount.value));
 const hasMorePatientOptions = computed(() => visiblePatientCount.value < filteredPatientOptions.value.length);
 
-const selectedPatientAttendances = computed(() => {
-    if (!selectedPatient.value) return [];
-
-    const selectedCpf = normalizeDigits(selectedPatient.value.cpf);
-
-    return attendanceHistory.value
-        .filter(attendance => {
-            const sameId = attendance.patientId && selectedPatient.value?.id && attendance.patientId === selectedPatient.value.id;
-            const sameCpf = selectedCpf && normalizeDigits(attendance.patientCpf) === selectedCpf;
-
-            return sameId || sameCpf;
-        })
-        .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime());
-});
+const selectedPatientAttendances = computed(() => attendances.value);
 
 const patientInitials = computed(() => {
     const words = selectedPatient.value?.name.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -1029,9 +1073,12 @@ const primaryPatientPhone = computed(() => {
 const patientAddress = computed(() => {
     if (!selectedPatient.value) return '';
 
-    return [selectedPatient.value.address, selectedPatient.value.addressNumber]
+    const street = [selectedPatient.value.address, selectedPatient.value.addressNumber]
         .filter(Boolean)
         .join(', ');
+    const city = selectedPatient.value.city.trim();
+
+    return [street, city].filter(Boolean).join(' - ');
 });
 
 function getTodayInputDate() {
@@ -1059,7 +1106,7 @@ function getEmptyAdultAnamnesis(): AdultAnamnesis {
         mainComplaint: '',
         brushingFrequency: '',
         flossUse: '',
-        responses: createQuestionResponses([...adultHealthQuestions, ...adultWomenQuestions])
+        responses: createQuestionResponses(adultAllQuestions)
     };
 }
 
@@ -1093,11 +1140,146 @@ function getEmptyClinicalRecord(): PatientClinicalRecord {
     return {
         selectedAnamnesisType: 'adult',
         adultAnamnesis: getEmptyAdultAnamnesis(),
-        pediatricAnamnesis: getEmptyPediatricAnamnesis(),
-        exams: []
+        pediatricAnamnesis: getEmptyPediatricAnamnesis()
     };
 }
 
+// ---- Mapeamento API <-> tela (anamnese) ----
+const answerFromApi: Record<ApiHealthAnswer, Exclude<HealthAnswer, ''>> = {
+    SIM: 'Sim',
+    NAO: 'Não',
+    NAO_SEI: 'Não sei',
+    POUCO: 'Pouco',
+    PEITO: 'Peito',
+    MAMADEIRA: 'Mamadeira'
+};
+const answerToApi = Object.fromEntries(
+    Object.entries(answerFromApi).map(([api, view]) => [view, api])
+) as Record<Exclude<HealthAnswer, ''>, ApiHealthAnswer>;
+
+const toViewAnswer = (answer?: ApiHealthAnswer | null): HealthAnswer => (answer && answerFromApi[answer]) || '';
+const toApiAnswer = (answer: HealthAnswer): ApiHealthAnswer | null => answer ? answerToApi[answer] ?? null : null;
+
+const toViewResponses = (questions: AnamnesisQuestion[], responses?: ApiResponses | null) => {
+    const result = createQuestionResponses(questions);
+    questions.forEach(question => {
+        const response = responses?.[question.key];
+        if (response) {
+            result[question.key] = { answer: toViewAnswer(response.answer), details: response.details ?? '' };
+        }
+    });
+    return result;
+};
+
+const toApiResponses = (responses: Record<string, AnamnesisQuestionResponse>): ApiResponses => {
+    return Object.fromEntries(Object.entries(responses).map(([key, response]) => [
+        key,
+        { answer: toApiAnswer(response.answer), details: response.details ?? '' }
+    ]));
+};
+
+const toClinicalRecord = (anamnesis: ApiAnamnesis): PatientClinicalRecord => {
+    const adult = anamnesis.adult;
+    const pediatric = anamnesis.pediatric;
+
+    return {
+        selectedAnamnesisType: anamnesis.selectedType === 'PEDIATRICO' ? 'pediatric' : 'adult',
+        adultAnamnesis: {
+            mainComplaint: adult?.mainComplaint ?? '',
+            brushingFrequency: adult?.brushingFrequency ?? '',
+            flossUse: adult?.flossUse ?? '',
+            responses: toViewResponses(adultAllQuestions, adult?.responses)
+        },
+        pediatricAnamnesis: {
+            mainComplaint: pediatric?.mainComplaint ?? '',
+            siblingsCount: pediatric?.siblingsCount ?? '',
+            mainCaregiver: pediatric?.mainCaregiver ?? '',
+            preferredActivity: pediatric?.preferredActivity ?? '',
+            attends: {
+                school: !!pediatric?.attends?.school,
+                daycare: !!pediatric?.attends?.daycare,
+                afterSchool: !!pediatric?.attends?.afterSchool
+            },
+            schoolPeriod: pediatric?.schoolPeriod ?? '',
+            brushing: pediatric?.brushing ?? '',
+            brushingFrequency: pediatric?.brushingFrequency ?? '',
+            flossUse: pediatric?.flossUse ?? '',
+            schoolServices: {
+                medicalCare: !!pediatric?.schoolServices?.medicalCare,
+                dentalCare: !!pediatric?.schoolServices?.dentalCare,
+                food: !!pediatric?.schoolServices?.food
+            },
+            firstDentistVisit: toViewAnswer(pediatric?.firstDentistVisit),
+            lastDentistVisit: pediatric?.lastDentistVisit ?? '',
+            responses: toViewResponses(pediatricHealthQuestions, pediatric?.responses)
+        }
+    };
+};
+
+// O save substitui a anamnese inteira: sempre envia o estado completo dos dois modelos.
+const toAnamnesisInput = (patientId: number, record: PatientClinicalRecord): AnamnesisInput => {
+    const adult = record.adultAnamnesis;
+    const pediatric = record.pediatricAnamnesis;
+    const firstDentistVisit = toApiAnswer(pediatric.firstDentistVisit);
+
+    return {
+        patientId,
+        selectedType: record.selectedAnamnesisType === 'pediatric' ? 'PEDIATRICO' : 'ADULTO',
+        adult: {
+            mainComplaint: adult.mainComplaint,
+            brushingFrequency: adult.brushingFrequency,
+            flossUse: adult.flossUse,
+            responses: toApiResponses(adult.responses)
+        },
+        pediatric: {
+            mainComplaint: pediatric.mainComplaint,
+            siblingsCount: pediatric.siblingsCount,
+            mainCaregiver: pediatric.mainCaregiver,
+            preferredActivity: pediatric.preferredActivity,
+            attends: { ...pediatric.attends },
+            schoolPeriod: pediatric.schoolPeriod,
+            brushing: pediatric.brushing,
+            brushingFrequency: pediatric.brushingFrequency,
+            flossUse: pediatric.flossUse,
+            schoolServices: { ...pediatric.schoolServices },
+            firstDentistVisit: firstDentistVisit === 'SIM' || firstDentistVisit === 'NAO' ? firstDentistVisit : null,
+            lastDentistVisit: pediatric.lastDentistVisit,
+            responses: toApiResponses(pediatric.responses)
+        }
+    };
+};
+
+const applyAnamnesis = (anamnesis: ApiAnamnesis) => {
+    currentClinicalRecord.value = toClinicalRecord(anamnesis);
+    anamnesisMeta.value = {
+        id: anamnesis.id,
+        updatedAt: anamnesis.updatedAt,
+        updatedByName: anamnesis.updatedByName
+    };
+};
+
+// ---- Mapeamento API -> tela (histórico) ----
+const attendanceStatusLabels: Record<ApiAppointmentStatus, AttendanceStatus> = {
+    PENDENTE: 'Pendente',
+    CONFIRMADO: 'Confirmado',
+    CANCELADO: 'Cancelado',
+    REALIZADO: 'Realizado'
+};
+
+const toAttendance = (appointment: ApiAppointment): AttendanceHistoryItem => ({
+    id: appointment.id,
+    date: appointment.start,
+    status: attendanceStatusLabels[appointment.status] ?? 'Pendente',
+    professional: appointment.professionalName || '—',
+    procedures: (appointment.procedures ?? []).map(procedure => procedure.description).filter(Boolean),
+    notes: appointment.notes ?? ''
+});
+
+const toAttendances = (appointments: ApiAppointment[]) => appointments
+    .map(toAttendance)
+    .sort((first, second) => second.date.localeCompare(first.date));
+
+// ---- Formatação ----
 const normalizeDigits = (value?: string | number | null) => String(value ?? '').replace(/\D/g, '');
 
 const formatDisplayId = (id?: number | null) => id ? `#${id.toString().padStart(7, '0')}` : '';
@@ -1137,6 +1319,11 @@ const formatDate = (dateString?: string | null) => {
     if (!year || !month || !day) return dateString;
 
     return `${day}/${month}/${year}`;
+};
+
+const formatDateTime = (dateString: string) => {
+    const time = dateString.split('T')[1]?.slice(0, 5);
+    return time ? `${formatDate(dateString)} ${time}` : formatDate(dateString);
 };
 
 const formatShortDate = (dateString: string) => {
@@ -1216,6 +1403,7 @@ const updatePediatricQuestionDetails = (key: string, value: string | undefined) 
     getPediatricQuestionResponse(key).details = value ?? '';
 };
 
+// ---- Pacientes ----
 const getPatientRecordKey = (patient: ApiPatient) => {
     if (patient.id) return `patient-${patient.id}`;
 
@@ -1236,6 +1424,7 @@ const toPatientOption = (patient: ApiPatient): PatientOption => ({
     responsibleName: patient.responsible ?? '',
     address: patient.address ?? '',
     addressNumber: patient.addressesNumber ?? '',
+    city: patient.city ?? '',
     homePhone: patient.homePhoneNumber ?? '',
     mobilePhone: patient.phoneNumber ?? '',
     profession: patient.occupation ?? '',
@@ -1243,15 +1432,17 @@ const toPatientOption = (patient: ApiPatient): PatientOption => ({
     email: patient.email ?? ''
 });
 
-const ensureClinicalRecord = (patient: PatientOption) => {
-    if (!patientRecords.value[patient.recordKey]) {
-        patientRecords.value[patient.recordKey] = getEmptyClinicalRecord();
-    }
-};
-
 const showError = (detail: string) => {
     toast.add({ severity: 'error', summary: 'Erro', detail, life: 5000 });
 };
+
+const getApiErrorCode = (error: unknown): string | undefined => {
+    if (!axios.isAxiosError(error)) return undefined;
+    const code = (error.response?.data as { error?: { code?: unknown } } | undefined)?.error?.code;
+    return typeof code === 'string' ? code : undefined;
+};
+
+const isSelected = (patient: PatientOption) => selectedPatient.value?.recordKey === patient.recordKey;
 
 const loadPatients = async () => {
     loadingPatients.value = true;
@@ -1278,12 +1469,113 @@ const openPatientDialog = () => {
     }
 };
 
+// Paciente removido no backend: avisa, limpa a seleção e recarrega a lista.
+const handlePatientNotFound = (message: string) => {
+    loadController?.abort();
+    releaseThumbnails();
+    selectedPatient.value = null;
+    currentClinicalRecord.value = null;
+    showError(message);
+    patientOptions.value = [];
+    openPatientDialog();
+};
+
+// ---- Carregamento do prontuário ----
+const loadAnamnesis = async (patient: PatientOption, signal: AbortSignal) => {
+    anamnesisLoading.value = true;
+    anamnesisError.value = '';
+    try {
+        const anamnesis = await AnamnesisService.details(patient.id!, signal);
+        if (signal.aborted || !isSelected(patient)) return;
+        applyAnamnesis(anamnesis);
+        healthAlertVisible.value = patientHealthAlerts.value.length > 0;
+    } catch (error: unknown) {
+        if (signal.aborted || !isSelected(patient)) return;
+        if (getApiErrorCode(error) === 'PATIENT_NOT_FOUND') return handlePatientNotFound(getApiErrorMessage(error));
+        anamnesisError.value = getApiErrorMessage(error);
+    } finally {
+        if (!signal.aborted && isSelected(patient)) anamnesisLoading.value = false;
+    }
+};
+
+const loadExams = async (patient: PatientOption, signal: AbortSignal) => {
+    examsLoading.value = true;
+    examsError.value = '';
+    try {
+        const list = await ExamService.list(patient.id!, signal);
+        if (signal.aborted || !isSelected(patient)) return;
+        exams.value = list;
+        void loadThumbnails(list, signal);
+    } catch (error: unknown) {
+        if (signal.aborted || !isSelected(patient)) return;
+        if (getApiErrorCode(error) === 'PATIENT_NOT_FOUND') return handlePatientNotFound(getApiErrorMessage(error));
+        examsError.value = getApiErrorMessage(error);
+    } finally {
+        if (!signal.aborted && isSelected(patient)) examsLoading.value = false;
+    }
+};
+
+const loadHistory = async (patient: PatientOption, signal: AbortSignal) => {
+    historyLoading.value = true;
+    historyError.value = '';
+    try {
+        const appointments = await AppointmentService.history(patient.id!, signal);
+        if (signal.aborted || !isSelected(patient)) return;
+        attendances.value = toAttendances(appointments);
+    } catch (error: unknown) {
+        if (signal.aborted || !isSelected(patient)) return;
+        if (getApiErrorCode(error) === 'PATIENT_NOT_FOUND') return handlePatientNotFound(getApiErrorMessage(error));
+        historyError.value = getApiErrorMessage(error);
+    } finally {
+        if (!signal.aborted && isSelected(patient)) historyLoading.value = false;
+    }
+};
+
+const loadPatientRecord = async (patient: PatientOption) => {
+    loadController?.abort();
+    releaseThumbnails();
+    currentClinicalRecord.value = getEmptyClinicalRecord();
+    anamnesisMeta.value = null;
+    exams.value = [];
+    attendances.value = [];
+
+    if (!patient.id) {
+        const message = 'Paciente sem identificador no servidor. Atualize a lista de pacientes.';
+        anamnesisError.value = message;
+        examsError.value = message;
+        historyError.value = message;
+        return;
+    }
+
+    loadController = new AbortController();
+    const { signal } = loadController;
+
+    // Cada aba trata o próprio erro: uma falha nos exames não esconde a anamnese.
+    await Promise.allSettled([
+        loadAnamnesis(patient, signal),
+        loadExams(patient, signal),
+        loadHistory(patient, signal)
+    ]);
+};
+
+const currentSignal = () => loadController?.signal ?? new AbortController().signal;
+
+const reloadAnamnesis = () => {
+    if (selectedPatient.value?.id) void loadAnamnesis(selectedPatient.value, currentSignal());
+};
+const reloadExams = () => {
+    if (selectedPatient.value?.id) void loadExams(selectedPatient.value, currentSignal());
+};
+const reloadHistory = () => {
+    if (selectedPatient.value?.id) void loadHistory(selectedPatient.value, currentSignal());
+};
+
 const selectPatient = (patient: PatientOption) => {
     selectedPatient.value = patient;
-    ensureClinicalRecord(patient);
     activeTab.value = 'personal';
     patientDialogVisible.value = false;
-    healthAlertVisible.value = patientHealthAlerts.value.length > 0;
+    healthAlertVisible.value = false;
+    void loadPatientRecord(patient);
 };
 
 const confirmPatientSelection = () => {
@@ -1301,87 +1593,194 @@ const onPatientTableScroll = (event: Event) => {
     }
 };
 
-const saveAnamnesis = () => {
-    if (!selectedPatient.value) return;
+// ---- Anamnese ----
+const saveAnamnesis = async () => {
+    const patient = selectedPatient.value;
+    const record = currentClinicalRecord.value;
+    if (!patient?.id || !record || !anamnesisReady.value || savingAnamnesis.value) return;
 
-    toast.add({
-        severity: 'success',
-        summary: 'Anamnese salva',
-        detail: 'Registro atualizado com sucesso.',
-        life: 3000
-    });
+    savingAnamnesis.value = true;
+
+    try {
+        const saved = await AnamnesisService.save(toAnamnesisInput(patient.id, record));
+        if (!isSelected(patient)) return;
+        // O servidor normaliza os dados (trim, details descartados): a resposta vira o estado do formulário.
+        applyAnamnesis(saved);
+        toast.add({
+            severity: 'success',
+            summary: 'Anamnese salva',
+            detail: 'Registro atualizado com sucesso.',
+            life: 3000
+        });
+    } catch (error: unknown) {
+        if (!isSelected(patient)) return;
+        showError(getApiErrorMessage(error));
+        if (getApiErrorCode(error) === 'CONFLICT') reloadAnamnesis();
+    } finally {
+        savingAnamnesis.value = false;
+    }
+};
+
+// ---- Exames ----
+const getExamTypeLabel = (type: ApiExamType) => EXAM_TYPE_LABELS[type] ?? type;
+const isImageAttachment = (exam: ApiExam) => exam.fileType.startsWith('image/');
+const getExamFileIcon = (exam: ApiExam) => {
+    if (exam.fileType === 'application/pdf') return 'pi-file-pdf';
+    return isImageAttachment(exam) ? 'pi-image' : 'pi-file';
+};
+
+const releaseThumbnail = (id: number) => {
+    const url = thumbnails.value[id];
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    delete thumbnails.value[id];
+};
+
+function releaseThumbnails() {
+    Object.values(thumbnails.value).forEach(url => URL.revokeObjectURL(url));
+    thumbnails.value = {};
+}
+
+// Baixa as miniaturas das imagens com no máximo 3 downloads simultâneos.
+const loadThumbnails = async (items: ApiExam[], signal: AbortSignal) => {
+    const queue = items.filter(exam => isImageAttachment(exam) && !thumbnails.value[exam.id]);
+    const worker = async () => {
+        while (queue.length && !signal.aborted) {
+            const exam = queue.shift()!;
+            try {
+                const blob = await ExamService.file(exam.id, signal);
+                if (signal.aborted || !exams.value.some(item => item.id === exam.id)) continue;
+                thumbnails.value[exam.id] = URL.createObjectURL(blob);
+            } catch {
+                // Sem miniatura: o card continua com o ícone e o arquivo pode ser aberto pelo botão.
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: 3 }, worker));
+};
+
+const validateExamDraft = () => {
+    if (!examDraft.value.type) return 'Selecione o tipo de exame.';
+    if (!examDraft.value.date) return 'Informe a data do exame.';
+    if (examDraft.value.date > getTodayInputDate()) return 'A data do exame não pode ser futura.';
+    if (examDraft.value.notes.trim().length > 500) return 'As observações devem ter até 500 caracteres.';
+    return null;
+};
+
+const showWarning = (detail: string) => {
+    toast.add({ severity: 'warn', summary: 'Arquivo não anexado', detail, life: 4000 });
 };
 
 const openExamFilePicker = () => {
+    const draftError = validateExamDraft();
+    if (draftError) return showWarning(draftError);
     examInput.value?.click();
 };
 
-const isAcceptedExamFile = (file: File) => {
-    return file.type.startsWith('image/') || file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-};
-
-const onExamFilesSelected = (event: Event) => {
+const onExamFilesSelected = async (event: Event) => {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
+    input.value = '';
 
-    if (!currentClinicalRecord.value || !files.length) return;
+    const patient = selectedPatient.value;
+    if (!patient?.id || !files.length || uploadingExams.value) return;
 
-    const acceptedFiles = files.filter(isAcceptedExamFile);
-    const rejectedCount = files.length - acceptedFiles.length;
+    const validationError = validateExamDraft() ?? validateExamFiles(files);
+    if (validationError) return showWarning(validationError);
 
-    acceptedFiles.forEach(file => {
-        currentClinicalRecord.value?.exams.unshift({
-            id: `exam-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    uploadingExams.value = true;
+
+    try {
+        const created = await ExamService.upload({
+            patientId: patient.id,
             type: examDraft.value.type,
             date: examDraft.value.date,
-            notes: examDraft.value.notes.trim(),
-            fileName: file.name,
-            fileType: file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : ''),
-            size: file.size,
-            url: URL.createObjectURL(file)
+            notes: examDraft.value.notes.trim() || undefined,
+            files
         });
-    });
+        if (!isSelected(patient)) return;
 
-    if (acceptedFiles.length) {
+        exams.value = [...[...created].reverse(), ...exams.value];
+        void loadThumbnails(created, currentSignal());
+        examDraft.value.notes = '';
         toast.add({
             severity: 'success',
             summary: 'Exame anexado',
-            detail: `${acceptedFiles.length} arquivo(s) adicionado(s) ao prontuário.`,
+            detail: `${created.length} arquivo(s) adicionado(s) ao prontuário.`,
             life: 3000
         });
-        examDraft.value.notes = '';
+    } catch (error: unknown) {
+        if (!isSelected(patient)) return;
+        showError(getApiErrorMessage(error));
+    } finally {
+        uploadingExams.value = false;
     }
-
-    if (rejectedCount) {
-        toast.add({
-            severity: 'warn',
-            summary: 'Arquivo não anexado',
-            detail: 'Apenas imagens e PDFs são permitidos.',
-            life: 4000
-        });
-    }
-
-    input.value = '';
 };
 
-const isImageAttachment = (exam: ExamAttachment) => exam.fileType.startsWith('image/');
-const getExamFileIcon = (exam: ExamAttachment) => exam.fileType === 'application/pdf' ? 'pi-file-pdf' : 'pi-file';
+const openExamAttachment = async (exam: ApiExam) => {
+    if (openingExamId.value === exam.id) return;
 
-const openExamAttachment = (exam: ExamAttachment) => {
-    window.open(exam.url, '_blank', 'noopener,noreferrer');
+    const cachedUrl = thumbnails.value[exam.id];
+    if (cachedUrl) {
+        window.open(cachedUrl, '_blank', 'noopener');
+        return;
+    }
+
+    // Abre a aba já no clique (evita bloqueio de pop-up) e carrega o arquivo nela depois do download.
+    const preview = window.open('', '_blank');
+    if (preview) preview.opener = null;
+    openingExamId.value = exam.id;
+
+    try {
+        const url = URL.createObjectURL(await ExamService.file(exam.id));
+        if (preview) preview.location.href = url;
+        else window.open(url, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error: unknown) {
+        preview?.close();
+        showError(getApiErrorMessage(error));
+        if (axios.isAxiosError(error) && error.response?.status === 404) reloadExams();
+        else if (error instanceof Error && /não encontrado/i.test(error.message)) reloadExams();
+    } finally {
+        openingExamId.value = null;
+    }
 };
 
-const removeExamAttachment = (exam: ExamAttachment) => {
-    if (!currentClinicalRecord.value) return;
+const confirmRemoveExam = async () => {
+    const exam = examToRemove.value;
+    const patient = selectedPatient.value;
+    if (!exam || !patient || removingExam.value) return;
 
-    URL.revokeObjectURL(exam.url);
-    currentClinicalRecord.value.exams = currentClinicalRecord.value.exams.filter(item => item.id !== exam.id);
-    toast.add({ severity: 'success', summary: 'Exame removido', detail: 'Anexo removido do prontuário.', life: 2500 });
+    removingExam.value = true;
+
+    try {
+        const removed = await ExamService.remove(exam.id);
+        if (removed !== true) throw new Error('O servidor não confirmou a remoção do exame.');
+        if (isSelected(patient)) {
+            exams.value = exams.value.filter(item => item.id !== exam.id);
+            releaseThumbnail(exam.id);
+        }
+        examToRemove.value = null;
+        toast.add({ severity: 'success', summary: 'Exame removido', detail: 'Anexo removido do prontuário.', life: 2500 });
+    } catch (error: unknown) {
+        showError(getApiErrorMessage(error));
+        if (getApiErrorCode(error) === 'EXAM_NOT_FOUND') {
+            examToRemove.value = null;
+            if (isSelected(patient)) {
+                exams.value = exams.value.filter(item => item.id !== exam.id);
+                releaseThumbnail(exam.id);
+                reloadExams();
+            }
+        }
+    } finally {
+        removingExam.value = false;
+    }
 };
 
 const getAttendanceStatusClass = (status: AttendanceStatus) => {
     switch (status) {
         case 'Realizado': return 'patient-record-status-success';
+        case 'Confirmado': return 'patient-record-status-info';
         case 'Cancelado': return 'patient-record-status-danger';
         case 'Pendente':
         default:
@@ -1399,8 +1798,7 @@ watch(patientFilters, () => {
 }, { deep: true });
 
 onBeforeUnmount(() => {
-    Object.values(patientRecords.value).forEach(record => {
-        record.exams.forEach(exam => URL.revokeObjectURL(exam.url));
-    });
+    loadController?.abort();
+    releaseThumbnails();
 });
 </script>

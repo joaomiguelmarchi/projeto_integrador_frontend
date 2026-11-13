@@ -90,6 +90,7 @@
                         <template #body="slotProps">
                             <div class="flex justify-center gap-2 pr-2">
                                 <Button aria-label="Editar detalhes" title="Editar detalhes" icon="pi pi-bars" variant="outlined" rounded size="small" @click="openEditDialog(slotProps.data)" :disabled="busy" />
+                                <Button aria-label="Gerar agendamento" title="Gerar agendamento" icon="pi pi-calendar-plus" variant="outlined" rounded size="small" @click="openAppointmentDialog(slotProps.data)" :disabled="busy || slotProps.data.status === 'Inativo'" />
                                 <Button aria-label="Baixar orçamento em PDF" title="Baixar orçamento em PDF" icon="pi pi-download" variant="outlined" rounded size="small" @click="downloadQuotationPdf(slotProps.data)" :disabled="busy" />
                                 <Button aria-label="Inativar registro" title="Inativar registro" icon="pi pi-trash" variant="outlined" rounded severity="danger" size="small" @click="confirmDeleteQuotation(slotProps.data)" :disabled="busy || slotProps.data.status === 'Inativo'" />
                             </div>
@@ -132,8 +133,30 @@
         </fieldset>
 
         <template #footer>
+            <Button label="Gerar agendamento" icon="pi pi-calendar-plus" outlined class="mr-auto" :disabled="busy || originalStatus === 'Inativo'" @click="openAppointmentDialog(currentQuotation)" />
             <Button label="Cancelar" icon="pi pi-times" :disabled="busy" text @click="closeEditDialog" />
             <Button label="Salvar" icon="pi pi-check" :loading="busy" :disabled="busy" @click="saveEditedQuotation" />
+        </template>
+    </Dialog>
+
+    <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '450px', maxWidth: '95vw' }" header="Gerar agendamento" :modal="true" :closable="!appointmentSaving" :closeOnEscape="!appointmentSaving" class="app-dialog">
+        <fieldset :disabled="appointmentSaving" class="app-dialog-body app-dialog-section border-0 p-0 m-0 min-w-0">
+            <p class="m-0 mb-4">Deseja gerar um agendamento com base no orçamento <b>{{ appointmentQuotation?.code }}</b> do paciente <b>{{ appointmentQuotation?.patientName }}</b>?</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="app-field">
+                    <label for="quotation-appointment-start" class="app-field-label">Data inicial<span class="app-required-mark">*</span></label>
+                    <InputText id="quotation-appointment-start" type="datetime-local" :modelValue="appointmentStart" @update:modelValue="onAppointmentStartChange" :invalid="appointmentSubmitted && !appointmentStart" />
+                </div>
+                <div class="app-field">
+                    <label for="quotation-appointment-end" class="app-field-label">Data final<span class="app-required-mark">*</span></label>
+                    <InputText id="quotation-appointment-end" type="datetime-local" v-model="appointmentEnd" :min="appointmentStart || undefined" :invalid="appointmentSubmitted && !!appointmentError" />
+                </div>
+            </div>
+            <small v-if="appointmentSubmitted && appointmentError" class="app-field-error">{{ appointmentError }}</small>
+        </fieldset>
+        <template #footer>
+            <Button label="Cancelar" icon="pi pi-times" text :disabled="appointmentSaving" @click="appointmentDialogVisible = false" />
+            <Button label="Confirmar" icon="pi pi-check" :loading="appointmentSaving" :disabled="appointmentSaving" @click="confirmAppointment" />
         </template>
     </Dialog>
 
@@ -160,7 +183,7 @@ import { getApiErrorMessage } from '../../infrastructure/http/api';
 import { QuotationService } from '../../infrastructure/services/QuotationService';
 import type { ApiQuotation, QuotationInput, QuotationStatus } from '../../infrastructure/services/QuotationService';
 import AppEmptyState from '../components/AppEmptyState.vue';
-import { defineComponent, h, onMounted, ref } from 'vue';
+import { computed, defineComponent, h, onMounted, ref } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
 import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
@@ -975,6 +998,49 @@ const completeApproval = async (created: number) => {
         toast.add({ severity: 'warn', summary: 'Agendamentos criados', detail: `${created} agendamento(s) criado(s), mas o orçamento não foi aprovado. Altere o status manualmente.`, life: 7000 });
         await showOperationError(error);
     } finally { busy.value = false; }
+};
+// Gera um agendamento único a partir do orçamento (POST /quotation/{id}/appointment).
+const appointmentDialogVisible = ref(false);
+const appointmentQuotation = ref<Quotation | null>(null);
+const appointmentStart = ref('');
+const appointmentEnd = ref('');
+const appointmentSubmitted = ref(false);
+const appointmentSaving = ref(false);
+const toLocalDateTime = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+const withSeconds = (value: string) => value.length === 16 ? `${value}:00` : value;
+const appointmentError = computed(() => {
+    if (!appointmentStart.value || !appointmentEnd.value) return 'Informe a data inicial e a data final.';
+    if (new Date(appointmentEnd.value).getTime() <= new Date(appointmentStart.value).getTime()) return 'A data final deve ser posterior à data inicial.';
+    return '';
+});
+const onAppointmentStartChange = (value: string | undefined) => {
+    appointmentStart.value = value ?? '';
+    const start = new Date(appointmentStart.value);
+    if (!appointmentStart.value || Number.isNaN(start.getTime())) return;
+    start.setHours(start.getHours() + 1);
+    appointmentEnd.value = toLocalDateTime(start);
+};
+const openAppointmentDialog = (target: Quotation) => {
+    if (busy.value || target.id == null) return;
+    appointmentQuotation.value = target;
+    appointmentStart.value = '';
+    appointmentEnd.value = '';
+    appointmentSubmitted.value = false;
+    appointmentDialogVisible.value = true;
+};
+const confirmAppointment = async () => {
+    const id = appointmentQuotation.value?.id;
+    if (appointmentSaving.value || id == null) return;
+    appointmentSubmitted.value = true;
+    if (appointmentError.value) return;
+    appointmentSaving.value = true;
+    try {
+        await QuotationService.createAppointment(id, { start: withSeconds(appointmentStart.value), end: withSeconds(appointmentEnd.value) });
+        appointmentDialogVisible.value = false;
+        toast.add({ severity: 'success', summary: 'Agendamento gerado', detail: 'O agendamento foi criado com base no orçamento.', life: 3000 });
+    } catch (error) {
+        toast.add({ severity: 'error', summary: 'Agendamento não gerado', detail: getApiErrorMessage(error), life: 6000 });
+    } finally { appointmentSaving.value = false; }
 };
 const onRowContextMenu = (event: any) => {
     event.originalEvent?.preventDefault?.();

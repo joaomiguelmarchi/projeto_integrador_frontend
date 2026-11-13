@@ -188,6 +188,7 @@ interface Patient {
     cpf: string;
     address: string;
     addressNumber: string;
+    city: string;
     zipCode: string;
     homePhone: string;
     mobilePhone: string;
@@ -205,6 +206,7 @@ interface PatientValidationErrors {
 interface ViaCepResponse {
     cep?: string;
     logradouro?: string;
+    localidade?: string;
     erro?: boolean;
 }
 
@@ -229,13 +231,14 @@ const PatientFormFields = defineComponent({
     },
     setup(props) {
         const required = computed(() => ({
-            name: props.submitted && !props.patient.name,
+            name: props.submitted && !props.patient.name?.trim(),
             cpf: props.submitted && !props.patient.cpf,
             birthDate: props.submitted && !props.patient.birthDate,
             gender: props.submitted && !props.patient.gender,
-            responsibleName: props.submitted && !props.patient.responsibleName,
+            responsibleName: props.submitted && !props.patient.responsibleName?.trim(),
             address: props.submitted && !props.patient.address,
             addressNumber: props.submitted && !props.patient.addressNumber,
+            city: props.submitted && !props.patient.city?.trim(),
             email: props.submitted && !props.patient.email
         }));
         const invalid = computed(() => ({
@@ -299,13 +302,15 @@ const PatientFormFields = defineComponent({
                 class: 'w-full'
             }), required.value.gender ? 'O sexo é obrigatório.' : '', true),
             h('div', { class: 'app-field col-span-12' }, [
-                label('responsible', 'Nome do Responsável'),
+                label('responsible', 'Nome do Responsável', true),
                 h(InputText, {
                     id: `${props.prefix}-responsible`,
                     modelValue: props.patient.responsibleName,
                     'onUpdate:modelValue': (value: string) => props.patient.responsibleName = value,
+                    invalid: required.value.responsibleName,
                     class: 'w-full'
-                })
+                }),
+                required.value.responsibleName ? h('small', { class: 'app-field-error' }, 'O nome do responsável é obrigatório.') : null
             ]),
             ])]),
             h(AppDetailSection, { title: 'Endereço', icon: 'pi-map-marker' }, () => [h('div', { class: 'app-form-grid' }, [
@@ -342,6 +347,14 @@ const PatientFormFields = defineComponent({
                 invalid: required.value.addressNumber,
                 class: 'w-full'
             }), required.value.addressNumber ? 'O número é obrigatório.' : '', true),
+            field('city', 'Cidade', h(InputText, {
+                id: `${props.prefix}-city`,
+                modelValue: props.patient.city,
+                'onUpdate:modelValue': (value: string) => props.patient.city = value,
+                maxlength: 100,
+                invalid: required.value.city,
+                class: 'w-full'
+            }), required.value.city ? 'A cidade é obrigatória.' : '', true),
             ])]),
             h(AppDetailSection, { title: 'Contato e informações complementares', icon: 'pi-phone' }, () => [h('div', { class: 'app-form-grid' }, [
             field('home-phone', 'Telefone Residencial', h(InputMask, {
@@ -451,6 +464,7 @@ function getEmptyPatient(): Patient {
         cpf: '',
         address: '',
         addressNumber: '',
+        city: '',
         zipCode: '',
         homePhone: '',
         mobilePhone: '',
@@ -528,6 +542,9 @@ const validateAndFillZipCode = async (patient: Patient) => {
         if (data.logradouro) {
             patient.address = data.logradouro;
         }
+        if (data.localidade) {
+            patient.city = data.localidade;
+        }
 
         return true;
     } catch {
@@ -563,6 +580,7 @@ const toViewPatient = (patient: ApiPatient, fallback?: Patient): Patient => ({
     cpf: patient.document ?? fallback?.cpf ?? '',
     address: patient.address ?? fallback?.address ?? '',
     addressNumber: patient.addressesNumber ?? fallback?.addressNumber ?? '',
+    city: patient.city ?? fallback?.city ?? '',
     zipCode: fallback?.zipCode ?? '',
     homePhone: patient.homePhoneNumber ?? fallback?.homePhone ?? '',
     mobilePhone: patient.phoneNumber ?? fallback?.mobilePhone ?? '',
@@ -583,6 +601,7 @@ const toApiPatient = (patient: Patient): ApiPatient => ({
     document: onlyDigits(patient.cpf),
     address: patient.address,
     addressesNumber: patient.addressNumber,
+    city: patient.city.trim(),
     homePhoneNumber: patient.homePhone || null,
     commercialPhoneNumber: patient.workMobilePhone || null,
     phoneNumber: patient.mobilePhone || null,
@@ -606,7 +625,8 @@ const isPatientValid = (patient: Patient) => {
         patient.responsibleName?.trim() &&
         patient.cpf?.trim() &&
         patient.address?.trim() &&
-        patient.addressNumber?.trim()
+        patient.addressNumber?.trim() &&
+        patient.city?.trim()
     );
 };
 
@@ -623,11 +643,21 @@ const validatePatient = async (patient: Patient) => {
 
     const hasValidZipCode = await validateAndFillZipCode(patient);
     const hasRequiredFields = isPatientValid(patient);
-
-    return hasRequiredFields &&
+    const isValid = hasRequiredFields &&
         !patientValidationErrors.value.cpf &&
         !patientValidationErrors.value.email &&
         hasValidZipCode;
+
+    if (!isValid) {
+        toast.add({
+            severity: 'warn',
+            summary: 'Cadastro incompleto',
+            detail: hasRequiredFields ? 'Corrija os campos destacados antes de salvar.' : 'Preencha os campos obrigatórios destacados antes de salvar.',
+            life: 4000
+        });
+    }
+
+    return isValid;
 };
 
 const showError = (detail: string) => {

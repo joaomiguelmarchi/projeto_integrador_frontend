@@ -1,4 +1,5 @@
 import { api } from '../http/api';
+import type { ApiAppointment } from './AppointmentService';
 
 export type QuotationStatus = 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'INATIVO';
 export interface QuotationItem {
@@ -50,6 +51,9 @@ export const QuotationService = {
   },
   async changeStatus(id: number, status: QuotationStatus) {
     return unwrap((await api.patch<Envelope<ApiQuotation>>(`/quotation/${id}/status`, { status })).data);
+  },
+  async createAppointment(id: number, body: { start: string; end: string }) {
+    return unwrap((await api.post<Envelope<ApiAppointment>>(`/quotation/${id}/appointment`, body)).data);
   },
   async inactivate(id: number) {
     const result = unwrap((await api.delete<Envelope<boolean>>(`/quotation/delete/${id}`)).data);

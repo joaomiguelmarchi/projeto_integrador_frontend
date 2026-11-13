@@ -20,10 +20,12 @@ export interface ApiAppointment {
   patientName: string;
   patientCpf: string | null;
   professionalUserId: number | null;
+  /** Somente leitura; ignorado em register/edit. */
+  professionalName?: string | null;
   notes: string | null;
   procedures: ApiAppointmentProcedure[];
 }
-export type AppointmentInput = Omit<ApiAppointment, 'id' | 'code' | 'procedures'> & {
+export type AppointmentInput = Omit<ApiAppointment, 'id' | 'code' | 'procedures' | 'professionalName'> & {
   procedures: Array<ApiAppointmentProcedure | { procedureId: number }>;
 };
 interface Envelope<T> { data: T; error?: { message?: string } | null }
@@ -36,6 +38,10 @@ function unwrap<T>(response: { data: Envelope<T> }): T {
 export const AppointmentService = {
   async list(start: string, end: string, signal?: AbortSignal) {
     return unwrap(await api.get<Envelope<ApiAppointment[]>>('/appointment/list', { params: { start, end }, signal }));
+  },
+  /** Histórico do paciente: sem start/end traz todos os atendimentos, do mais recente ao mais antigo. */
+  async history(patientId: number, signal?: AbortSignal) {
+    return unwrap(await api.get<Envelope<ApiAppointment[]>>('/appointment/list', { params: { patientId }, signal }));
   },
   async details(id: string) {
     return unwrap(await api.get<Envelope<ApiAppointment>>(`/appointment/details/${id}`));

@@ -13,6 +13,8 @@ export interface ApiPatient {
   document?: string | null;
   address?: string | null;
   addressesNumber?: string | null;
+  /** Obrigatória em register/edit; pacientes antigos vêm com "". */
+  city?: string | null;
   homePhoneNumber?: string | null;
   commercialPhoneNumber?: string | null;
   phoneNumber?: string | null;
