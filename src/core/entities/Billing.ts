@@ -1,19 +1,21 @@
 export type AccountStatus = 'Faturado' | 'Pendente' | 'Inativo'
 export interface Payment {
-  id: string
+  id: number
+  installmentNumber: number
   dueDate: string
   amount: number // Centavos para evitar arredondamento financeiro.
   status: 'Pago' | 'Pendente'
 }
 export interface PatientAccount {
-  id: string
-  patientId: string
+  id: number
+  code: string
+  patientId: number | null
   patientName: string
   phone: string
   attendanceId: string
   generatedAt: string
   status: AccountStatus
-  procedures: { id: string; name: string; quantity: number; unitAmount: number }[]
+  procedures: { id: number; name: string; quantity: number; unitAmount: number }[]
   payments: Payment[]
 }
 export const accountTotal = (account: PatientAccount) => account.procedures.reduce((sum, item) => sum + item.quantity * item.unitAmount, 0)
