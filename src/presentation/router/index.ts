@@ -75,18 +75,18 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, _from, next) => {
-  
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const isAuthenticated = AuthService.isAuthenticated()
-
-  if (requiresAuth && !isAuthenticated) {
-    next('/login')
-  } else if (to.path === '/login' && isAuthenticated) {
-    next('/inicio')
-  } else {
-    next()
+router.beforeEach(async to => {
+  const protectedRoute = to.matched.some(record => record.meta.requiresAuth);
+  if (!protectedRoute && to.name !== 'login') return true;
+  if (!AuthService.isAuthenticated()) return protectedRoute ? { name: 'login' } : true;
+  try {
+    const authenticated = await AuthService.validateSession();
+    if (!authenticated) return protectedRoute ? { name: 'login', query: { reason: 'expired' } } : true;
+    return to.name === 'login' ? { name: 'inicio' } : true;
+  } catch {
+    // Fail closed on startup/navigation without misreporting a network failure as a 401.
+    return protectedRoute ? { name: 'login', query: { reason: 'unavailable' } } : true;
   }
-})
+});
 
-export default router
+export default router;

@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import type { PatientAccount } from '../../core/entities/Billing'
 
 // Substituir pela consulta de contas geradas por atendimentos concluídos quando a API existir.
@@ -16,3 +17,5 @@ export function createDemoAccounts(): PatientAccount[] {
     { id: 'CTA-005', patientId: 'DEMO-04', patientName: 'Pedro Lima (exemplo)', phone: '(00) 00000-0000', attendanceId: 'ATD-005', generatedAt: date(-20), status: 'Inativo', procedures: [{ id: 'P3', name: 'Consulta odontológica', quantity: 1, unitAmount: 12000 }], payments: [{ id: '1', dueDate: date(-20), amount: 12000, status: 'Pendente' }] },
   ]
 }
+
+export const accounts = ref<PatientAccount[]>(createDemoAccounts())

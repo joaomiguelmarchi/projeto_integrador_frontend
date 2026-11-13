@@ -149,9 +149,9 @@ import { useToast } from 'primevue/usetoast'
 import AppTableToolbar from '../components/AppTableToolbar.vue'
 import AppLayout from '../components/AppLayout.vue'
 import { accountTotal, outstandingTotal, overdueTotal, isOverdue, type AccountStatus, type PatientAccount, type Payment } from '../../core/entities/Billing'
-import { createDemoAccounts } from '../../infrastructure/services/BillingDemo'
+import { accounts } from '../../infrastructure/services/BillingDemo'
 
-const accounts = ref(createDemoAccounts())
+
 const statuses: AccountStatus[] = ['Faturado', 'Pendente', 'Inativo']
 const search = ref('')
 const dashboardExpanded = ref(false)

@@ -95,6 +95,7 @@
         </div>
     </AppLayout>
 
+    <QuotationScheduleDialog v-if="schedulingQuotation" :quotation="schedulingQuotation" @close="schedulingQuotation = null" @confirm="completeApproval" />
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
     <Dialog :draggable="false" v-model:visible="addDialogVisible" :style="{ width: '1180px' }" header="Novo Orçamento" :modal="true" class="app-dialog p-fluid">
@@ -147,6 +148,9 @@
 </template>
 
 <script setup lang="ts">
+import QuotationScheduleDialog from '../components/QuotationScheduleDialog.vue';
+import { quotationsMock, type Quotation, type QuotationProcedure } from '../../infrastructure/services/QuotationDemo';
+const schedulingQuotation = ref<Quotation | null>(null);
 import AppPermanentDeleteDialog from '../components/AppPermanentDeleteDialog.vue';
 import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppDetailSection from '../components/AppDetailSection.vue';
@@ -172,26 +176,6 @@ import AppTableToolbar from '../components/AppTableToolbar.vue';
 import AppStatusBadge from '../components/AppStatusBadge.vue';
 import AppLayout from '../components/AppLayout.vue';
 
-interface QuotationProcedure {
-    rowKey: string;
-    procedureId: number | null;
-    procedureIdText: string;
-    description: string;
-    value: number;
-    classification: string;
-}
-
-interface Quotation {
-    id: string;
-    patientId: number | null;
-    status: 'Pendente' | 'Aprovado' | 'Rejeitado' | 'Inativo';
-    generationDate: string;
-    patientName: string;
-    patientCpf: string;
-    totalValue: number;
-    procedures: QuotationProcedure[];
-}
-
 interface PatientOption {
     id: number | null;
     name: string;
@@ -206,25 +190,7 @@ interface ProcedureOption {
     classification: string;
 }
 
-const quotationsMock = ref<Quotation[]>([
-    {
-        id: '#0000001',
-        patientId: null,
-        status: 'Pendente',
-        generationDate: '2026-05-20',
-        patientName: 'Joao Silva Oliveira',
-        patientCpf: '111.222.333-44',
-        totalValue: 1050.00,
-        procedures: [
-            { rowKey: 'mock-1-p1', procedureId: 1, procedureIdText: '#0000001', description: 'Limpeza Simples', value: 150.00, classification: 'Preventivo' },
-            { rowKey: 'mock-1-p2', procedureId: 2, procedureIdText: '#0000002', description: 'Clareamento Dental', value: 900.00, classification: 'Estetico' }
-        ]
-    },
-    { id: '#0000002', patientId: null, status: 'Aprovado', generationDate: '2026-05-18', patientName: 'Maria Santos Souza', patientCpf: '555.666.777-88', totalValue: 2450.00, procedures: [] },
-    { id: '#0000003', patientId: null, status: 'Rejeitado', generationDate: '2026-05-15', patientName: 'Lucas Ferreira', patientCpf: '321.654.987-11', totalValue: 600.00, procedures: [] },
-    { id: '#0000004', patientId: null, status: 'Inativo', generationDate: '2026-05-10', patientName: 'Ana Costa', patientCpf: '123.456.789-00', totalValue: 1350.00, procedures: [] },
-    { id: '#0000005', patientId: null, status: 'Pendente', generationDate: '2026-05-24', patientName: 'Pedro Almeida', patientCpf: '999.888.777-66', totalValue: 450.00, procedures: [] }
-]);
+
 
 const toast = useToast();
 const statusOptions = ref(['Pendente', 'Aprovado', 'Rejeitado', 'Inativo']);
@@ -865,13 +831,19 @@ const downloadQuotationPdf = (quotation: Quotation) => {
 };
 
 
+const completeApproval = () => {
+    if (!schedulingQuotation.value) return;
+    const quotation = schedulingQuotation.value;
+    quotation.status = 'Aprovado';
+    const index = quotationsMock.value.findIndex(item => item.id === quotation.id);
+    if (index < 0) quotationsMock.value.unshift(quotation);
+    else quotationsMock.value.splice(index, 1, quotation);
+    schedulingQuotation.value = null;
+    toast.add({ severity: 'success', summary: 'Orçamento aprovado', detail: 'Sessões adicionadas à agenda local.', life: 4000 });
+};
 const approveQuotation = () => {
     if (!contextMenuSelection.value) return;
-
-    const index = quotationsMock.value.findIndex(q => q.id === contextMenuSelection.value?.id);
-    if (index !== -1 && quotationsMock.value[index]) {
-        quotationsMock.value[index].status = 'Aprovado';
-    }
+    schedulingQuotation.value = JSON.parse(JSON.stringify(contextMenuSelection.value));
     contextMenuSelection.value = null;
 };
 
@@ -915,6 +887,9 @@ const onRowContextMenu = (event: any) => {
                 command: () => rejectQuotation()
             }
         ];
+        cm.value.show(event.originalEvent);
+    } else if (contextMenuSelection.value.status === 'Aprovado') {
+        menuItems.value = [{ label: 'Planejar novas sessões', icon: 'pi pi-calendar-plus', command: () => approveQuotation() }];
         cm.value.show(event.originalEvent);
     } else if (contextMenuSelection.value.status === 'Inativo') {
         menuItems.value = [
@@ -965,7 +940,9 @@ const saveAddedQuotation = () => {
         const dd = String(today.getDate()).padStart(2, '0');
         currentQuotation.value.generationDate = `${yyyy}-${mm}-${dd}`;
 
-        quotationsMock.value.unshift(JSON.parse(JSON.stringify(currentQuotation.value)));
+        if (currentQuotation.value.status === 'Aprovado') {
+            schedulingQuotation.value = JSON.parse(JSON.stringify(currentQuotation.value));
+        } else quotationsMock.value.unshift(JSON.parse(JSON.stringify(currentQuotation.value)));
         addDialogVisible.value = false;
         currentQuotation.value = getEmptyQuotation();
         selectedPatient.value = null;
@@ -995,7 +972,9 @@ const saveEditedQuotation = () => {
         }
 
         const index = quotationsMock.value.findIndex(q => q.id === currentQuotation.value.id);
-        if (index !== -1) {
+        if (currentQuotation.value.status === 'Aprovado' && quotationsMock.value[index]?.status !== 'Aprovado') {
+            schedulingQuotation.value = JSON.parse(JSON.stringify(currentQuotation.value));
+        } else if (index !== -1) {
             quotationsMock.value.splice(index, 1, JSON.parse(JSON.stringify(currentQuotation.value)));
         }
         editDialogVisible.value = false;

@@ -6,7 +6,10 @@
                     <div class="patient-record-summary-main">
                         <div class="patient-record-avatar">{{ patientInitials }}</div>
                         <div class="patient-record-summary-content">
-                            <h2>{{ selectedPatient.name }}</h2>
+                            <div class="patient-record-name-row">
+                                <h2>{{ selectedPatient.name }}</h2>
+                                <Button v-if="patientHealthAlerts.length" icon="pi pi-exclamation-triangle" severity="warn" text rounded aria-label="Consultar alertas de saúde do paciente" title="Paciente com alertas na anamnese" @click="healthAlertVisible = true" />
+                            </div>
                             <div class="patient-record-summary-meta">
                                 <span>{{ selectedPatient.displayId || '-' }}</span>
                                 <span>{{ selectedPatient.cpf || '-' }}</span>
@@ -203,7 +206,6 @@
                                                     id="adult-main-complaint"
                                                     v-model="currentClinicalRecord.adultAnamnesis.mainComplaint"
                                                     rows="3"
-                                                    autoResize
                                                     class="w-full"
                                                 />
                                             </div>
@@ -234,11 +236,12 @@
                                                             placeholder="Selecione"
                                                             class="patient-record-question-select"
                                                         />
-                                                        <InputText
+                                                        <Textarea rows="2"
                                                             v-if="question.detailLabel"
                                                             :modelValue="getAdultQuestionResponse(question.key).details"
                                                             @update:modelValue="updateAdultQuestionDetails(question.key, $event)"
                                                             :placeholder="question.detailLabel"
+                                                            :aria-label="question.text + ' — ' + question.detailLabel"
                                                             class="patient-record-question-detail"
                                                         />
                                                     </div>
@@ -254,7 +257,7 @@
                                             <div class="app-form-grid">
                                                 <div class="app-field col-span-12 md:col-span-6">
                                                     <label for="adult-brushing-frequency" class="app-field-label">Quantas vezes por dia escova os dentes?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="adult-brushing-frequency"
                                                         v-model="currentClinicalRecord.adultAnamnesis.brushingFrequency"
                                                         class="w-full"
@@ -262,7 +265,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-6">
                                                     <label for="adult-floss-use" class="app-field-label">Usa fio dental?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="adult-floss-use"
                                                         v-model="currentClinicalRecord.adultAnamnesis.flossUse"
                                                         class="w-full"
@@ -316,7 +319,6 @@
                                                         id="pediatric-main-complaint"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.mainComplaint"
                                                         rows="3"
-                                                        autoResize
                                                         class="w-full"
                                                     />
                                                 </div>
@@ -331,7 +333,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-8">
                                                     <label for="main-caregiver" class="app-field-label">Quem permanece a maior parte do tempo com a criança?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="main-caregiver"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.mainCaregiver"
                                                         class="w-full"
@@ -339,7 +341,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12">
                                                     <label for="preferred-activity" class="app-field-label">Qual atividade preferida da criança?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="preferred-activity"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.preferredActivity"
                                                         class="w-full"
@@ -372,7 +374,7 @@
                                             <div class="app-form-grid mt-4">
                                                 <div class="app-field col-span-12 md:col-span-4">
                                                     <label for="school-period" class="app-field-label">Período</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="school-period"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.schoolPeriod"
                                                         class="w-full"
@@ -380,7 +382,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-4">
                                                     <label for="pediatric-brushing" class="app-field-label">Realiza escovação?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="pediatric-brushing"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.brushing"
                                                         class="w-full"
@@ -388,7 +390,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-4">
                                                     <label for="pediatric-brushing-frequency" class="app-field-label">Quantas vezes ao dia?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="pediatric-brushing-frequency"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.brushingFrequency"
                                                         class="w-full"
@@ -396,7 +398,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-4">
                                                     <label for="pediatric-floss" class="app-field-label">Faz uso do fio dental?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="pediatric-floss"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.flossUse"
                                                         class="w-full"
@@ -414,7 +416,7 @@
                                                 </div>
                                                 <div class="app-field col-span-12 md:col-span-4">
                                                     <label for="last-dentist-visit" class="app-field-label">Quando foi a última vez?</label>
-                                                    <InputText
+                                                    <Textarea rows="2"
                                                         id="last-dentist-visit"
                                                         v-model="currentClinicalRecord.pediatricAnamnesis.lastDentistVisit"
                                                         class="w-full"
@@ -464,11 +466,12 @@
                                                             placeholder="Selecione"
                                                             class="patient-record-question-select"
                                                         />
-                                                        <InputText
+                                                        <Textarea rows="2"
                                                             v-if="question.detailLabel"
                                                             :modelValue="getPediatricQuestionResponse(question.key).details"
                                                             @update:modelValue="updatePediatricQuestionDetails(question.key, $event)"
                                                             :placeholder="question.detailLabel"
+                                                            :aria-label="question.text + ' — ' + question.detailLabel"
                                                             class="patient-record-question-detail"
                                                         />
                                                     </div>
@@ -608,6 +611,25 @@
         </div>
     </AppLayout>
 
+    <Dialog v-model:visible="healthAlertVisible" modal :draggable="false" header="Alertas de saúde do paciente" class="app-dialog" :style="{ width: '640px', maxWidth: '95vw' }">
+        <div class="app-dialog-body app-dialog-section" v-if="selectedPatient">
+            <div class="patient-record-health-alert-heading">
+                <i class="pi pi-exclamation-triangle" aria-hidden="true" />
+                <div><strong>{{ selectedPatient.name }}</strong><p>Condições assinaladas como “Sim” na anamnese. Revise estas informações antes do atendimento.</p></div>
+            </div>
+            <ul class="patient-record-health-alert-list">
+                <li v-for="alert in patientHealthAlerts" :key="alert.key">
+                    <strong>{{ alert.label }}</strong><small>Modelo {{ alert.source.toLowerCase() }}</small>
+                    <p v-if="alert.details.trim()">{{ alert.details }}</p>
+                </li>
+            </ul>
+        </div>
+        <template #footer>
+            <Button label="Ver anamnese" icon="pi pi-clipboard" outlined @click="activeTab = 'anamnesis'; healthAlertVisible = false" />
+            <Button label="Entendi" icon="pi pi-check" @click="healthAlertVisible = false" />
+        </template>
+    </Dialog>
+
     <Dialog :draggable="false"
         v-model:visible="patientDialogVisible"
         :style="{ width: '1120px' }"
@@ -691,6 +713,7 @@
 </template>
 
 <script setup lang="ts">
+import { getClinicalHealthAlerts } from '../../infrastructure/services/ClinicalHealthAlerts';
 import AppEmptyState from '../components/AppEmptyState.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { FilterMatchMode } from '@primevue/core/api';
@@ -819,6 +842,7 @@ interface ExamDraft {
 
 const toast = useToast();
 const patientDialogVisible = ref(false);
+const healthAlertVisible = ref(false);
 const loadingPatients = ref(false);
 const patientOptions = ref<PatientOption[]>([]);
 const patientLazyBatchSize = 12;
@@ -939,6 +963,8 @@ const attendanceHistory = ref<AttendanceHistoryItem[]>([
 
 const selectedPatientKey = computed(() => selectedPatient.value?.recordKey ?? '');
 const currentClinicalRecord = computed(() => selectedPatientKey.value ? patientRecords.value[selectedPatientKey.value] ?? null : null);
+const patientHealthAlerts = computed(() => getClinicalHealthAlerts(currentClinicalRecord.value));
+watch(patientHealthAlerts, alerts => { if (!alerts.length) healthAlertVisible.value = false; });
 const currentAnamnesisTypeLabel = computed(() => {
     const selectedType = currentClinicalRecord.value?.selectedAnamnesisType ?? 'adult';
     return selectedType === 'adult' ? 'Modelo adulto' : 'Modelo pediátrico';
@@ -1257,6 +1283,7 @@ const selectPatient = (patient: PatientOption) => {
     ensureClinicalRecord(patient);
     activeTab.value = 'personal';
     patientDialogVisible.value = false;
+    healthAlertVisible.value = patientHealthAlerts.value.length > 0;
 };
 
 const confirmPatientSelection = () => {

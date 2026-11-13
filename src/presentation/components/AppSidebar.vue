@@ -34,10 +34,12 @@
         </span>
       </button>
     </nav>
+    <button type="button" class="flex items-center gap-3 m-4 mt-0 px-3 py-2.5 rounded-lg text-left text-[var(--p-surface-600)] hover:bg-[var(--p-surface-0)]" @click="AuthService.logout()"><i class="pi pi-sign-out" aria-hidden="true" /><span>Sair do sistema</span></button>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { AuthService } from '../../infrastructure/services/AuthService';
 import { useRoute, useRouter } from 'vue-router'
 import AppBrand from './AppBrand.vue'
 

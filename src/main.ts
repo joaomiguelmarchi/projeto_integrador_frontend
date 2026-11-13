@@ -1,3 +1,4 @@
+import { installSessionRuntime } from './infrastructure/services/SessionRuntime';
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './presentation/router'
@@ -41,6 +42,8 @@ const SmileHubPreset = definePreset(Aura, {
 });
 
 const app = createApp(App);
+const disposeSessionRuntime = installSessionRuntime(router);
+if (import.meta.hot) import.meta.hot.dispose(disposeSessionRuntime);
 app.use(router);
 app.use(PrimeVue, {
     locale: {

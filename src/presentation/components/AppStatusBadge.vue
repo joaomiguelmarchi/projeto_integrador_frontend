@@ -10,6 +10,7 @@ import { computed } from 'vue'
 
 const props = defineProps<{ value: string }>()
 const tone = computed(() => {
+  if (props.value === 'Realizado') return 'completed'
   if (['Faturado', 'Pago', 'Aprovado', 'Ativo', 'Confirmado'].includes(props.value)) return 'success'
   if (props.value === 'Pendente') return 'warning'
   if (props.value === 'Rejeitado') return 'danger'

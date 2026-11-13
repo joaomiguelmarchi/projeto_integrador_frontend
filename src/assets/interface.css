@@ -52,6 +52,7 @@
 
 .app-status-badge { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .65rem; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
 .app-status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.app-status-badge-completed { color: #7e22ce; background: #faf5ff; }
 .app-status-badge-success { color: #38751c; background: #f1f8ec; }
 .app-status-badge-warning { color: #8b580b; background: #fff7e8; }
 .app-status-badge-danger { color: #ad332d; background: #fff1f0; }
@@ -126,3 +127,25 @@
 
 /* Right-click updates the regular selection; context-menu outlines are redundant. */
 .app-table .p-datatable-tbody > tr.p-datatable-contextmenu-row-selected { outline: none; }
+
+/* Campos descritivos da anamnese: leitura integral e expansão manual. */
+.patient-record-anamnesis-layout textarea.p-textarea {
+    min-height: 5rem;
+    max-height: 24rem;
+    overflow-y: auto;
+    resize: vertical;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+.patient-record-question-fields { align-items: flex-start; }
+.patient-record-name-row { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.patient-record-name-row h2 { overflow-wrap: anywhere; }
+.patient-record-name-row .p-button { flex-shrink: 0; }
+.patient-record-health-alert-heading { display: flex; align-items: flex-start; gap: 1rem; }
+.patient-record-health-alert-heading > i { color: #a16207; font-size: 1.5rem; margin-top: .2rem; }
+.patient-record-health-alert-heading p { margin: .5rem 0 0; color: var(--p-surface-600); }
+.patient-record-health-alert-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; }
+.patient-record-health-alert-list li { padding: 1rem; border: 1px solid #fde68a; border-radius: .75rem; background: #fffbeb; color: #713f12; }
+.patient-record-health-alert-list small { display: block; margin-top: .25rem; }
+.patient-record-health-alert-list p { white-space: pre-wrap; overflow-wrap: anywhere; margin: .5rem 0 0; }

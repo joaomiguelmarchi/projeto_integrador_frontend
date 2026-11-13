@@ -1,6 +1,7 @@
 import { api } from '../http/api';
 
-const AUTH_STORAGE_KEY = 'usuario_logado';
+import { SessionStore, type EndReason } from './SessionStore';
+let revoking: Promise<boolean> | null = null;
 
 const getErrorMessage = (error: any) => {
   const data = error.response?.data;
@@ -18,32 +19,50 @@ const getErrorMessage = (error: any) => {
 export const AuthService = {
   async login(email: string, senha: string) {
     try {
+      if (revoking) await revoking;
+      while (Number(localStorage.getItem('smilehub.logout.pending')) > Date.now()) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       const response = await api.post('/user/login', {
         email,
         password: senha
       });
 
+      if (response.data?.error) throw new Error(response.data.error.message || 'Não foi possível autenticar.');
+      const expiration = Number(response.data?.data?.expiration);
+      if (!Number.isFinite(expiration) || expiration <= 0) throw new Error('Resposta de autenticação inválida.');
+      SessionStore.start(expiration);
       return {
         sucesso: true,
-        data: response.data
+        data: undefined
       };
     } catch (error: any) {
       return {
         sucesso: false,
-        mensagem: getErrorMessage(error)
+        mensagem: error.response ? getErrorMessage(error) : error.message || getErrorMessage(error)
       };
     }
   },
 
-  saveSession(data?: unknown) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data ?? true));
+  revoke() {
+    if (!revoking) {
+      localStorage.setItem('smilehub.logout.pending', String(Date.now() + 9000));
+      revoking = api.post('/user/logout', null, { timeout: 8000 }).then(response => !response.data?.error).catch(error => error.response?.status === 401).finally(() => {
+        localStorage.removeItem('smilehub.logout.pending');
+        revoking = null;
+      });
+    }
+    return revoking;
   },
-
-  logout() {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-  },
-
-  isAuthenticated() {
-    return !!localStorage.getItem(AUTH_STORAGE_KEY);
+  logout(reason: EndReason = 'logout') { SessionStore.end(reason); },
+  isAuthenticated() { return SessionStore.valid(); },
+  async validateSession() {
+    if (!SessionStore.valid()) return false;
+    const response = await api.get('/user/me');
+    if (response.data?.error || !response.data?.data?.id) {
+      SessionStore.end('expired');
+      return false;
+    }
+    return SessionStore.valid();
   }
 };

@@ -5,6 +5,7 @@
 
       <div class="bg-[var(--p-surface-0)] p-12 rounded-[16px] shadow-[0_10px_25px_rgba(2,24,71,0.15)] w-full">
         <form @submit.prevent="handleLogin" class="flex flex-col gap-5">
+          <Message v-if="sessionMessage" severity="info" role="status">{{ sessionMessage }}</Message>
           <div class="flex flex-col gap-2">
             <label for="username" class="text-sm font-semibold text-slate-700">
               Email<span class="app-required-mark">*</span>
@@ -106,8 +107,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
 import IconField from 'primevue/iconfield';
@@ -123,6 +124,15 @@ const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const router = useRouter();
+const route = useRoute();
+const sessionMessage = computed(() => ({
+  inactivity: 'Sua sessão foi encerrada por inatividade. Faça login novamente.',
+  expired: 'Sua sessão expirou. Faça login novamente.',
+  logout: 'Você saiu do sistema.',
+  'logout-unconfirmed': 'A sessão local foi encerrada, mas não foi possível confirmar a saída no servidor. Verifique sua conexão.',
+  remote: 'Sua sessão foi encerrada em outra aba. Faça login novamente.',
+  unavailable: 'Não foi possível validar sua sessão no servidor. Verifique a conexão e tente novamente.'
+}[String(route.query.reason)] || ''));
 const toast = useToast();
 
 const errors = ref({
@@ -157,7 +167,7 @@ const validateForm = () => {
 };
 
 const handleLogin = async () => {
-  if (!validateForm()) return;
+  if (loading.value || !validateForm()) return;
 
   loading.value = true;
 
@@ -165,8 +175,8 @@ const handleLogin = async () => {
     const result = await AuthService.login(username.value, password.value);
 
     if (result.sucesso) {
-      AuthService.saveSession(result.data);
-      router.push('/inicio');
+      password.value = '';
+      await router.replace('/inicio');
     } else {
       toast.add({
         severity: 'error',

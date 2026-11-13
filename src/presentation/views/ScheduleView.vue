@@ -39,11 +39,24 @@
         </div>
     </AppLayout>
 
+    <Dialog :visible="!!appointmentToDelete" @update:visible="value => { if (!value) appointmentToDelete = null; }" modal :draggable="false" header="Confirmar exclusão do agendamento" class="app-dialog" :style="{ width: '640px', maxWidth: '95vw' }">
+        <div class="app-confirm-body" v-if="appointmentToDelete">
+            <i class="pi pi-exclamation-triangle app-confirm-icon" />
+            <div class="app-dialog-section">
+                <p>Deseja excluir o agendamento <strong>{{ appointmentToDelete.code }}</strong> de <strong>{{ appointmentToDelete.patientName }}</strong>?</p>
+                <p>{{ new Date(appointmentToDelete.start).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }}</p>
+                <p>O agendamento será removido da agenda. Esta ação não pode ser desfeita.</p>
+            </div>
+        </div>
+        <template #footer><Button label="Cancelar" text @click="appointmentToDelete = null" /><Button label="Excluir agendamento" icon="pi pi-trash" severity="danger" @click="deleteSelectedAppointment" /></template>
+    </Dialog>
     <ContextMenu ref="cm" :model="menuItems" class="!rounded-xl !shadow-lg !border-[var(--p-surface-100)]" />
 
     <Dialog :draggable="false" v-model:visible="appointmentDialogVisible" :style="{ width: '1180px' }" :header="appointmentDialogTitle" :modal="true" class="app-dialog p-fluid">
         <div class="app-dialog-body app-dialog-section">
             <AppDetailSummary v-if="dialogMode === 'edit'" :label="'Atendimento ' + currentAppointment.code" :title="currentAppointment.patientName" icon="pi-calendar" :status="currentAppointment.status" :items="[{ label: 'CPF', value: currentAppointment.patientCpf }]" />
+            <p v-if="currentAppointment.status === 'Realizado'" class="text-sm text-[var(--p-surface-600)]">Atendimento realizado. A conta está disponível no Faturamento; os dados deste atendimento são somente para consulta.</p>
+            <fieldset :disabled="currentAppointment.status === 'Realizado'" :inert="currentAppointment.status === 'Realizado'" class="border-0 p-0 m-0 min-w-0 app-dialog-section">
             <AppDetailSection title="Informações gerais" icon="pi-info-circle">
                         <div class="grid grid-cols-12 gap-4 pt-2">
                             <div class="app-field col-span-12 md:col-span-4">
@@ -84,7 +97,7 @@
                                     id="appointment-start"
                                     v-model="currentAppointment.start"
                                     type="datetime-local"
-                                    :invalid="submitted && !currentAppointment.start"
+                                    :invalid="!!appointmentConflict || (submitted && !currentAppointment.start)"
                                     class="w-full"
                                 />
                                 <small v-if="submitted && !currentAppointment.start" class="app-field-error">O horário de início é obrigatório.</small>
@@ -96,11 +109,12 @@
                                     id="appointment-end"
                                     v-model="currentAppointment.end"
                                     type="datetime-local"
-                                    :invalid="submitted && (!currentAppointment.end || !hasValidAppointmentRange)"
+                                    :invalid="!!appointmentConflict || (submitted && (!currentAppointment.end || !hasValidAppointmentRange))"
                                     class="w-full"
                                 />
                                 <small v-if="submitted && !currentAppointment.end" class="app-field-error">O horário de fim é obrigatório.</small>
-                                <small v-else-if="submitted && !hasValidAppointmentRange" class="app-field-error">O fim deve ser posterior ao início.</small>
+                                <small v-if="appointmentConflict" class="app-field-error" role="alert">{{ conflictMessage(appointmentConflict) }}</small>
+                                <small v-if="submitted && !hasValidAppointmentRange" class="app-field-error">O fim deve ser posterior ao início.</small>
                             </div>
 
                             <div class="app-field col-span-12 md:col-span-4">
@@ -108,7 +122,7 @@
                                 <Select
                                     inputId="appointment-status"
                                     v-model="currentAppointment.status"
-                                    :options="statusOptions"
+                                    :options="currentAppointment.status === 'Realizado' ? statusOptions : editableStatusOptions"
                                     :invalid="submitted && !currentAppointment.status"
                                     class="w-full"
                                 />
@@ -196,16 +210,19 @@
                     <small v-if="submitted" class="app-field-error">Adicione pelo menos um procedimento ao atendimento.</small>
                 </div>
             </section>
+            </fieldset>
         </div>
 
         <template #footer>
             <Button label="Cancelar" icon="pi pi-times" text @click="closeAppointmentDialog" />
-            <Button label="Salvar" icon="pi pi-check" @click="saveAppointment" />
+            <Button v-if="currentAppointment.status !== 'Realizado'" label="Salvar" icon="pi pi-check" @click="saveAppointment" />
         </template>
     </Dialog>
 </template>
 
 <script setup lang="ts">
+import { findAppointmentConflict } from '../../infrastructure/services/ScheduleValidation';
+import { completeAppointment } from '../../infrastructure/services/AttendanceDemo';
 import AppDetailSummary from '../components/AppDetailSummary.vue';
 import AppDetailSection from '../components/AppDetailSection.vue';
 import { computed, onMounted, ref } from 'vue';
@@ -236,7 +253,7 @@ import { getProcedureServiceErrorMessage, ProcedureService } from '../../infrast
 import type { ApiProcedure } from '../../infrastructure/services/ProcedureService';
 import AppLayout from '../components/AppLayout.vue';
 
-type AppointmentStatus = 'Pendente' | 'Confirmado';
+import { appointments, type Appointment, type AppointmentProcedure, type AppointmentStatus } from '../../infrastructure/services/SchedulingDemo';
 type DialogMode = 'add' | 'edit';
 
 interface PatientOption {
@@ -251,27 +268,6 @@ interface ProcedureOption {
     description: string;
     value: number;
     classification: string;
-}
-
-interface AppointmentProcedure {
-    rowKey: string;
-    procedureId: number | null;
-    procedureIdText: string;
-    description: string;
-    value: number;
-    classification: string;
-}
-
-interface Appointment {
-    id: string;
-    code: string;
-    status: AppointmentStatus;
-    start: string;
-    end: string;
-    patientId: number | null;
-    patientName: string;
-    patientCpf: string;
-    procedures: AppointmentProcedure[];
 }
 
 interface AutocompleteCompleteEvent {
@@ -293,50 +289,11 @@ interface ScheduleMenuItem {
     command: () => void;
 }
 
-const statusOptions: AppointmentStatus[] = ['Pendente', 'Confirmado'];
+const editableStatusOptions: AppointmentStatus[] = ['Pendente', 'Confirmado'];
+const statusOptions: AppointmentStatus[] = [...editableStatusOptions, 'Realizado'];
+const appointmentToDelete = ref<Appointment | null>(null);
 const toast = useToast();
-const appointments = ref<Appointment[]>([
-    {
-        id: 'appointment-1',
-        code: '#0000001',
-        status: 'Confirmado',
-        start: '2026-08-18T09:00',
-        end: '2026-08-18T10:00',
-        patientId: null,
-        patientName: 'Maria Santos Souza',
-        patientCpf: '555.666.777-88',
-        procedures: [
-            {
-                rowKey: 'appointment-1-item-1',
-                procedureId: 1,
-                procedureIdText: '#0000001',
-                description: 'Limpeza Simples',
-                value: 150,
-                classification: 'Preventivo'
-            }
-        ]
-    },
-    {
-        id: 'appointment-2',
-        code: '#0000002',
-        status: 'Pendente',
-        start: '2026-08-18T14:30',
-        end: '2026-08-18T15:30',
-        patientId: null,
-        patientName: 'João Silva Oliveira',
-        patientCpf: '111.222.333-44',
-        procedures: [
-            {
-                rowKey: 'appointment-2-item-1',
-                procedureId: 2,
-                procedureIdText: '#0000002',
-                description: 'Clareamento Dental',
-                value: 900,
-                classification: 'Estetico'
-            }
-        ]
-    }
-]);
+
 const registeredPatients = ref<PatientOption[]>([]);
 const patientSuggestions = ref<PatientOption[]>([]);
 const selectedPatient = ref<PatientOption | string | null>(null);
@@ -370,12 +327,18 @@ const hasValidAppointmentRange = computed(() => {
     return new Date(currentAppointment.value.end).getTime() > new Date(currentAppointment.value.start).getTime();
 });
 
+const appointmentConflict = computed(() => findAppointmentConflict(
+    appointments.value, currentAppointment.value.start, currentAppointment.value.end,
+    dialogMode.value === 'edit' ? currentAppointment.value.id : undefined
+));
+const conflictMessage = (appointment: Appointment) => `Este horário conflita com o agendamento ${appointment.code} de ${appointment.patientName}. Escolha outro horário.`;
+
 const calendarEvents = computed<EventInput[]>(() => appointments.value.map(appointment => ({
     id: appointment.id,
     title: appointment.patientName,
     start: appointment.start,
     end: appointment.end,
-    editable: true,
+    editable: appointment.status !== 'Realizado',
     classNames: [`schedule-event-${appointment.status.toLowerCase()}`],
     extendedProps: {
         code: appointment.code,
@@ -484,6 +447,7 @@ const getStatusDotStyle = (status: AppointmentStatus | string) => {
     const normalizedStatus = getAppointmentStatus(status);
 
     switch (normalizedStatus) {
+        case 'Realizado': return 'background-color: #7e22ce;';
         case 'Confirmado': return 'background-color: var(--p-primary-1000);';
         case 'Pendente':
         default:
@@ -646,7 +610,7 @@ const updateSelectedAppointmentStatus = (status: AppointmentStatus) => {
     if (!contextMenuSelection.value) return;
 
     const index = appointments.value.findIndex(appointment => appointment.id === contextMenuSelection.value?.id);
-    if (index === -1 || !appointments.value[index]) return;
+    if (index === -1 || !appointments.value[index] || appointments.value[index].status === 'Realizado' || status === 'Realizado') return;
 
     appointments.value[index].status = status;
 
@@ -659,17 +623,24 @@ const updateSelectedAppointmentStatus = (status: AppointmentStatus) => {
 };
 
 const deleteSelectedAppointment = () => {
-    if (!contextMenuSelection.value) return;
-
-    const selectedId = contextMenuSelection.value.id;
-    appointments.value = appointments.value.filter(appointment => appointment.id !== selectedId);
-
-    if (currentAppointment.value.id === selectedId) {
-        closeAppointmentDialog();
-    }
-
-    toast.add({ severity: 'success', summary: 'Atendimento excluído', detail: 'Registro removido da agenda.', life: 2500 });
+    const target = appointments.value.find(item => item.id === appointmentToDelete.value?.id);
+    if (!target || target.status === 'Realizado') { appointmentToDelete.value = null; return; }
+    appointments.value = appointments.value.filter(item => item.id !== target.id);
+    if (currentAppointment.value.id === target.id) closeAppointmentDialog();
+    appointmentToDelete.value = null;
     contextMenuSelection.value = null;
+    toast.add({ severity: 'success', summary: 'Atendimento excluído', detail: 'Registro removido da agenda.', life: 2500 });
+};
+
+const markAppointmentCompleted = (id: string) => {
+    try {
+        const account = completeAppointment(id);
+        if (currentAppointment.value.id === id) closeAppointmentDialog();
+        contextMenuSelection.value = null;
+        toast.add({ severity: 'success', summary: 'Atendimento realizado', detail: 'Conta do paciente criada no Faturamento com status ' + account.status.toLowerCase() + '.', life: 4500 });
+    } catch (error) {
+        showError(error instanceof Error ? error.message : 'Não foi possível realizar o atendimento.');
+    }
 };
 
 const openAppointmentContextMenu = (mouseEvent: MouseEvent, appointmentId: string) => {
@@ -679,8 +650,9 @@ const openAppointmentContextMenu = (mouseEvent: MouseEvent, appointmentId: strin
     const appointment = appointments.value.find(item => item.id === appointmentId);
     if (!appointment) return;
 
+    if (appointment.status === 'Realizado') { cm.value?.hide(); return; }
     contextMenuSelection.value = appointment;
-    const statusMenuItems = statusOptions
+    const statusMenuItems = editableStatusOptions
         .filter(status => status !== appointment.status)
         .map(status => ({
             label: getStatusMenuLabel(status),
@@ -690,11 +662,12 @@ const openAppointmentContextMenu = (mouseEvent: MouseEvent, appointmentId: strin
 
     menuItems.value = [
         ...statusMenuItems,
+        ...(appointment.status === 'Confirmado' ? [{ label: 'Atendimento realizado', icon: 'pi pi-check-circle', command: () => markAppointmentCompleted(appointment.id) }] : []),
         {
             label: 'Excluir atendimento',
             icon: 'pi pi-trash',
             class: 'text-[var(--p-primary-1010)]',
-            command: () => deleteSelectedAppointment()
+            command: () => { appointmentToDelete.value = cloneAppointment(appointment); }
         }
     ];
 
@@ -881,10 +854,15 @@ const isAppointmentValid = () => {
 };
 
 const saveAppointment = () => {
+    if (currentAppointment.value.status === 'Realizado' || appointments.value.find(a => a.id === currentAppointment.value.id)?.status === 'Realizado') return;
     submitted.value = true;
     syncPatientName({ value: selectedPatient.value });
 
     if (!isAppointmentValid()) return;
+    if (appointmentConflict.value) {
+        showError(conflictMessage(appointmentConflict.value));
+        return;
+    }
 
     const appointmentToSave = cloneAppointment({
         ...currentAppointment.value,
@@ -906,22 +884,31 @@ const saveAppointment = () => {
 };
 
 const updateAppointmentSchedule = (id: string, start: Date | null, end: Date | null) => {
-    if (!start || !end) return;
+    if (!start || !end || !Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) {
+        showError('O fim deve ser posterior ao início.');
+        return false;
+    }
 
     const appointment = appointments.value.find(item => item.id === id);
-    if (!appointment) return;
+    if (!appointment || appointment.status === 'Realizado') return false;
+    const conflict = findAppointmentConflict(appointments.value, start, end, id);
+    if (conflict) {
+        showError(conflictMessage(conflict));
+        return false;
+    }
 
     appointment.start = dateToInputValue(start);
     appointment.end = dateToInputValue(end);
     toast.add({ severity: 'success', summary: 'Agenda atualizada', detail: 'Horário do atendimento ajustado.', life: 2500 });
+    return true;
 };
 
 const updateAppointmentFromCalendarMove = (info: EventDropInfo) => {
-    updateAppointmentSchedule(info.event.id, info.event.start, info.event.end);
+    if (!updateAppointmentSchedule(info.event.id, info.event.start, info.event.end)) info.revert();
 };
 
 const updateAppointmentFromCalendarResize = (info: EventResizeDoneInfo) => {
-    updateAppointmentSchedule(info.event.id, info.event.start, info.event.end);
+    if (!updateAppointmentSchedule(info.event.id, info.event.start, info.event.end)) info.revert();
 };
 
 onMounted(() => {
